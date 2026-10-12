@@ -94,7 +94,7 @@ export default function StatusCheckPage() {
             <main className="main-container">
                 <div className="page-header">
                     <h2>📋 ตรวจสอบสถานะการยืมครุภัณฑ์</h2>
-                    <p>กรอกรหัสนิสิต, รหัสบุคลากร, อีเมล หรือเบอร์โทรศัพท์ เพื่อติดตามสถานะคำขอยืม</p>
+                    <p>กรอกรหัสนิสิตหรือเบอร์โทรศัพท์ เพื่อติดตามสถานะคำขอยืม</p>
                 </div>
 
                 <div className="status-check-search">
@@ -104,7 +104,7 @@ export default function StatusCheckPage() {
                             <input
                                 type="text"
                                 className="search-input"
-                                placeholder="กรอกรหัสนิสิต, รหัสบุคลากร, อีเมล หรือเบอร์โทร"
+                                placeholder="กรอกรหัสนิสิตหรือเบอร์โทร"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                             />
