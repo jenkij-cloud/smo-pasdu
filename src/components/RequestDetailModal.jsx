@@ -69,28 +69,69 @@ export default function RequestDetailModal({
                         <div className="detail-section">
                             <h4>👤 ข้อมูลผู้ยืม</h4>
                             <div className="detail-row">
-                                <span className="detail-label">ชื่อ-สกุล:</span>
-                                <span>{request.borrowerName}</span>
-                            </div>
-                            <div className="detail-row">
-                                <span className="detail-label">รหัสนิสิต:</span>
-                                <span>{request.studentId}</span>
-                            </div>
-                            <div className="detail-row">
-                                <span className="detail-label">อีเมลมหาวิทยาลัย:</span>
+                                <span className="detail-label">ประเภทผู้ยืม:</span>
                                 <span>
-                                    <a href={`mailto:${studentEmail}`} className="link-student-email">
-                                        📧 {studentEmail}
-                                    </a>
+                                    {request.borrowerType === 'staff' ? (
+                                        <span className="badge-borrower-type staff">👔 อาจารย์ / บุคลากร</span>
+                                    ) : (
+                                        <span className="badge-borrower-type student">🎓 นิสิต</span>
+                                    )}
                                 </span>
                             </div>
                             <div className="detail-row">
+                                <span className="detail-label">ชื่อ-สกุล:</span>
+                                <span style={{ fontWeight: 600 }}>{request.borrowerName}</span>
+                            </div>
+                            {request.borrowerType === 'staff' ? (
+                                <>
+                                    {request.position && (
+                                        <div className="detail-row">
+                                            <span className="detail-label">ตำแหน่ง:</span>
+                                            <span>{request.position}</span>
+                                        </div>
+                                    )}
+                                    {request.staffId && (
+                                        <div className="detail-row">
+                                            <span className="detail-label">รหัสบุคลากร:</span>
+                                            <span>{request.staffId}</span>
+                                        </div>
+                                    )}
+                                    <div className="detail-row">
+                                        <span className="detail-label">สังกัด / คณะ / หน่วยงาน:</span>
+                                        <span>{request.affiliation || '-'}</span>
+                                    </div>
+                                    <div className="detail-row">
+                                        <span className="detail-label">อีเมลติดต่อ:</span>
+                                        <span>
+                                            <a href={`mailto:${studentEmail}`} className="link-student-email">
+                                                📧 {studentEmail}
+                                            </a>
+                                        </span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="detail-row">
+                                        <span className="detail-label">รหัสนิสิต:</span>
+                                        <span>{request.studentId}</span>
+                                    </div>
+                                    <div className="detail-row">
+                                        <span className="detail-label">อีเมลมหาวิทยาลัย:</span>
+                                        <span>
+                                            <a href={`mailto:${studentEmail}`} className="link-student-email">
+                                                📧 {studentEmail}
+                                            </a>
+                                        </span>
+                                    </div>
+                                    <div className="detail-row">
+                                        <span className="detail-label">สังกัด / สาขา:</span>
+                                        <span>{request.affiliation || '-'}</span>
+                                    </div>
+                                </>
+                            )}
+                            <div className="detail-row">
                                 <span className="detail-label">เบอร์โทรศัพท์:</span>
                                 <span><a href={`tel:${request.phone}`} style={{ color: 'var(--primary)' }}>{request.phone}</a></span>
-                            </div>
-                            <div className="detail-row">
-                                <span className="detail-label">สังกัด / สาขา:</span>
-                                <span>{request.affiliation || '-'}</span>
                             </div>
                         </div>
 

@@ -30,10 +30,15 @@ export default function StatusCheckPage() {
                 ? trimmed.split('@')[0]
                 : trimmed;
 
-            // ค้นหาตามรหัสนิสิต, เบอร์โทร, หรืออีเมล
+            // ค้นหาตามรหัสนิสิต, รหัสบุคลากร, เบอร์โทร, หรืออีเมล
             const qStudent = query(
                 collection(db, 'borrowRequests'),
                 where('studentId', '==', extractedId)
+            );
+
+            const qStaffId = query(
+                collection(db, 'borrowRequests'),
+                where('staffId', '==', trimmed)
             );
 
             const qPhone = query(
@@ -46,14 +51,16 @@ export default function StatusCheckPage() {
                 where('studentEmail', '==', trimmed.toLowerCase())
             );
 
-            const [snapStudent, snapPhone, snapEmail] = await Promise.all([
+            const [snapStudent, snapStaff, snapPhone, snapEmail] = await Promise.all([
                 getDocs(qStudent),
+                getDocs(qStaffId),
                 getDocs(qPhone),
                 getDocs(qEmail)
             ]);
 
             const map = new Map();
             snapStudent.docs.forEach(d => map.set(d.id, { id: d.id, ...d.data() }));
+            snapStaff.docs.forEach(d => map.set(d.id, { id: d.id, ...d.data() }));
             snapPhone.docs.forEach(d => map.set(d.id, { id: d.id, ...d.data() }));
             snapEmail.docs.forEach(d => map.set(d.id, { id: d.id, ...d.data() }));
 
@@ -87,7 +94,7 @@ export default function StatusCheckPage() {
             <main className="main-container">
                 <div className="page-header">
                     <h2>📋 ตรวจสอบสถานะการยืมครุภัณฑ์</h2>
-                    <p>กรอกรหัสนิสิต, อีเมลมหาวิทยาลัย (@tsu.ac.th) หรือเบอร์โทร เพื่อติดตามสถานะคำขอยืม</p>
+                    <p>กรอกรหัสนิสิต, รหัสบุคลากร, อีเมล หรือเบอร์โทรศัพท์ เพื่อติดตามสถานะคำขอยืม</p>
                 </div>
 
                 <div className="status-check-search">
@@ -97,7 +104,7 @@ export default function StatusCheckPage() {
                             <input
                                 type="text"
                                 className="search-input"
-                                placeholder="กรอกรหัสนิสิต เช่น 6720210035 หรือ เบอร์โทรศัพท์"
+                                placeholder="กรอกรหัสนิสิต, รหัสบุคลากร, อีเมล หรือเบอร์โทร"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                             />

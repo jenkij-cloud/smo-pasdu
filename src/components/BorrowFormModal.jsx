@@ -23,10 +23,14 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
     const initialTimes = getInitialTimes();
 
     const [formData, setFormData] = useState({
+        borrowerType: 'student', // 'student' | 'staff'
         borrowerName: '',
         studentId: '',
+        staffId: '',
+        staffEmail: '',
         phone: '',
         affiliation: '',
+        position: '',
         quantity: 1,
         location: '',
         borrowDate: today,
@@ -40,6 +44,20 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
     const [submitting, setSubmitting] = useState(false);
 
     const studentEmail = getStudentEmail(formData.studentId);
+    const contactEmail = formData.borrowerType === 'student'
+        ? studentEmail
+        : formData.staffEmail.trim();
+
+    const handleTypeSwitch = (type) => {
+        setFormData(prev => ({ ...prev, borrowerType: type }));
+        setErrors(prev => {
+            const copy = { ...prev };
+            delete copy.studentId;
+            delete copy.staffEmail;
+            delete copy.affiliation;
+            return copy;
+        });
+    };
 
     // กำหนดระยะเวลายืมสูงสุด 7 วัน (1 สัปดาห์)
     const MAX_BORROW_DAYS = 7;
@@ -145,9 +163,22 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
     const validate = () => {
         const newErrors = {};
         if (!formData.borrowerName.trim()) newErrors.borrowerName = 'กรุณากรอกชื่อ-สกุล';
-        if (!formData.studentId.trim()) newErrors.studentId = 'กรุณากรอกรหัสนิสิต';
         if (!formData.phone.trim()) newErrors.phone = 'กรุณากรอกเบอร์โทรศัพท์';
         if (!formData.location.trim()) newErrors.location = 'กรุณากรอกสถานที่ใช้งาน';
+
+        if (formData.borrowerType === 'student') {
+            if (!formData.studentId.trim()) newErrors.studentId = 'กรุณากรอกรหัสนิสิต';
+        } else {
+            // บุคลากร / อาจารย์
+            if (!formData.staffEmail.trim()) {
+                newErrors.staffEmail = 'กรุณากรอกอีเมลติดต่อ (TSU Mail หรือ Gmail)';
+            } else if (!formData.staffEmail.includes('@') || !formData.staffEmail.includes('.')) {
+                newErrors.staffEmail = 'รูปแบบอีเมลไม่ถูกต้อง';
+            }
+            if (!formData.affiliation.trim()) {
+                newErrors.affiliation = 'กรุณาระบุสังกัด / ภาควิชา / คณะ / หน่วยงาน';
+            }
+        }
         
         // ตรวจสอบวันที่ยืม (ห้ามยืมย้อนหลัง)
         if (!formData.borrowDate) {
@@ -208,7 +239,14 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
 
             await onSubmit({
                 ...formData,
-                studentEmail,
+                borrowerType: formData.borrowerType,
+                studentId: formData.borrowerType === 'student' ? formData.studentId.trim() : (formData.staffId.trim() || '-'),
+                staffId: formData.borrowerType === 'staff' ? formData.staffId.trim() : '',
+                position: formData.borrowerType === 'staff' ? formData.position.trim() : '',
+                studentEmail: contactEmail,
+                borrowerEmail: contactEmail,
+                contactEmail: contactEmail,
+                affiliation: formData.affiliation.trim(),
                 equipmentId: equipment.id,
                 equipmentName: equipment.name,
                 equipmentCategory: equipment.category || '',
@@ -266,91 +304,224 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                             </div>
                         </div>
 
+                        {/* Borrower Type Tabs */}
+                        <div className="borrower-type-container">
+                            <label className="form-label" style={{ marginBottom: '0.4rem', fontWeight: 600 }}>
+                                ประเภทผู้ขอยืม <span className="required">*</span>
+                            </label>
+                            <div className="borrower-type-tabs">
+                                <button
+                                    type="button"
+                                    className={`borrower-type-tab ${formData.borrowerType === 'student' ? 'active' : ''}`}
+                                    onClick={() => handleTypeSwitch('student')}
+                                >
+                                    <span className="tab-icon">🎓</span>
+                                    <span className="tab-title">นิสิต</span>
+                                    <span className="tab-subtitle">Student</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`borrower-type-tab ${formData.borrowerType === 'staff' ? 'active' : ''}`}
+                                    onClick={() => handleTypeSwitch('staff')}
+                                >
+                                    <span className="tab-icon">👔</span>
+                                    <span className="tab-title">อาจารย์ / บุคลากร</span>
+                                    <span className="tab-subtitle">Faculty & Staff</span>
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Borrower Name */}
                         <div className="form-group">
                             <label className="form-label">
-                                ชื่อ-สกุล <span className="required">*</span>
+                                {formData.borrowerType === 'staff' ? 'ชื่อ-สกุล (อาจารย์/บุคลากร)' : 'ชื่อ-สกุล นิสิต'} <span className="required">*</span>
                             </label>
                             <input
                                 type="text"
                                 className="form-input"
-                                placeholder="เช่น นายสมชาย ใจดี"
+                                placeholder={formData.borrowerType === 'staff' ? "เช่น ดร.สมชาย ใจดี หรือ อาจารย์สมใจ รักเรียน" : "เช่น นายสมชาย ใจดี"}
                                 value={formData.borrowerName}
                                 onChange={e => setFormData({ ...formData, borrowerName: e.target.value })}
                             />
                             {errors.borrowerName && <p className="form-error">{errors.borrowerName}</p>}
                         </div>
 
-                        {/* Student ID & Phone */}
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label className="form-label">
-                                    รหัสนิสิต <span className="required">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="เช่น 6720210035"
-                                    value={formData.studentId}
-                                    onChange={e => setFormData({ ...formData, studentId: e.target.value })}
-                                />
-                                {formData.studentId.trim() && (
-                                    <div className="email-hint-badge">
-                                        📧 เมลนิสิต: <strong>{studentEmail}</strong>
+                        {/* Conditional Fields based on Borrower Type */}
+                        {formData.borrowerType === 'student' ? (
+                            <>
+                                {/* Student: ID & Phone */}
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            รหัสนิสิต <span className="required">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="เช่น 6720210035"
+                                            value={formData.studentId}
+                                            onChange={e => setFormData({ ...formData, studentId: e.target.value })}
+                                        />
+                                        {formData.studentId.trim() && (
+                                            <div className="email-hint-badge">
+                                                📧 เมลนิสิต: <strong>{studentEmail}</strong>
+                                            </div>
+                                        )}
+                                        {errors.studentId && <p className="form-error">{errors.studentId}</p>}
                                     </div>
-                                )}
-                                {errors.studentId && <p className="form-error">{errors.studentId}</p>}
-                            </div>
 
-                            <div className="form-group">
-                                <label className="form-label">
-                                    เบอร์โทรศัพท์ <span className="required">*</span>
-                                </label>
-                                <input
-                                    type="tel"
-                                    className="form-input"
-                                    placeholder="เช่น 0812345678"
-                                    value={formData.phone}
-                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                />
-                                {errors.phone && <p className="form-error">{errors.phone}</p>}
-                            </div>
-                        </div>
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            เบอร์โทรศัพท์ <span className="required">*</span>
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            className="form-input"
+                                            placeholder="เช่น 0812345678"
+                                            value={formData.phone}
+                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                        />
+                                        {errors.phone && <p className="form-error">{errors.phone}</p>}
+                                    </div>
+                                </div>
 
-                        {/* Affiliation & Quantity */}
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label className="form-label">สังกัด / ชมรม / สาขาวิชา</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="เช่น สาขาวิชาวิทยาการคอมพิวเตอร์"
-                                    value={formData.affiliation}
-                                    onChange={e => setFormData({ ...formData, affiliation: e.target.value })}
-                                />
-                            </div>
+                                {/* Student: Affiliation & Quantity */}
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label className="form-label">สังกัด / ชมรม / สาขาวิชา</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="เช่น สาขาวิชาวิทยาการคอมพิวเตอร์ หรือ ชมรมดนตรีสากล"
+                                            value={formData.affiliation}
+                                            onChange={e => setFormData({ ...formData, affiliation: e.target.value })}
+                                        />
+                                    </div>
 
-                            <div className="form-group">
-                                <label className="form-label">
-                                    จำนวนที่ต้องการยืม <span className="required">*</span>
-                                </label>
-                                <input
-                                    type="number"
-                                    className="form-input"
-                                    min="1"
-                                    max={equipment.quantity}
-                                    value={formData.quantity}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        setFormData({
-                                            ...formData,
-                                            quantity: val === "" ? "" : parseInt(val)
-                                        });
-                                    }}
-                                />
-                                {errors.quantity && <p className="form-error">{errors.quantity}</p>}
-                            </div>
-                        </div>
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            จำนวนที่ต้องการยืม <span className="required">*</span>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            min="1"
+                                            max={equipment.quantity}
+                                            value={formData.quantity}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setFormData({
+                                                    ...formData,
+                                                    quantity: val === "" ? "" : parseInt(val)
+                                                });
+                                            }}
+                                        />
+                                        {errors.quantity && <p className="form-error">{errors.quantity}</p>}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {/* Staff: Email & Phone */}
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            อีเมลติดต่อ (TSU Mail / Gmail) <span className="required">*</span>
+                                        </label>
+                                        <input
+                                            type="email"
+                                            className="form-input"
+                                            placeholder="เช่น ajarn@tsu.ac.th"
+                                            value={formData.staffEmail}
+                                            onChange={e => setFormData({ ...formData, staffEmail: e.target.value })}
+                                        />
+                                        {formData.staffEmail.trim() && (
+                                            <div className="email-hint-badge">
+                                                📧 สำหรับรับแจ้งเตือนผลอนุมัติและแจ้งเตือนกำหนดคืน
+                                            </div>
+                                        )}
+                                        {errors.staffEmail && <p className="form-error">{errors.staffEmail}</p>}
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            เบอร์โทรศัพท์ <span className="required">*</span>
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            className="form-input"
+                                            placeholder="เช่น 0812345678 หรือ เบอร์ต่อภายใน"
+                                            value={formData.phone}
+                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                        />
+                                        {errors.phone && <p className="form-error">{errors.phone}</p>}
+                                    </div>
+                                </div>
+
+                                {/* Staff: Affiliation & Position */}
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            หน่วยงาน / ภาควิชา / คณะ <span className="required">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="เช่น สาขาวิชาวิทยาการคอมพิวเตอร์ หรือ สำนักงานคณะ"
+                                            value={formData.affiliation}
+                                            onChange={e => setFormData({ ...formData, affiliation: e.target.value })}
+                                        />
+                                        {errors.affiliation && <p className="form-error">{errors.affiliation}</p>}
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">ตำแหน่ง (ถ้ามี)</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="เช่น อาจารย์ประจำสาขา, นักวิชาการศึกษา"
+                                            value={formData.position}
+                                            onChange={e => setFormData({ ...formData, position: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Staff: Staff ID (optional) & Quantity */}
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label className="form-label">รหัสบุคลากร (ถ้ามี)</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="ระบุรหัสบุคลากร (ไม่บังคับ)"
+                                            value={formData.staffId}
+                                            onChange={e => setFormData({ ...formData, staffId: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            จำนวนที่ต้องการยืม <span className="required">*</span>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            min="1"
+                                            max={equipment.quantity}
+                                            value={formData.quantity}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setFormData({
+                                                    ...formData,
+                                                    quantity: val === "" ? "" : parseInt(val)
+                                                });
+                                            }}
+                                        />
+                                        {errors.quantity && <p className="form-error">{errors.quantity}</p>}
+                                    </div>
+                                </div>
+                            </>
+                        )}
 
                         {/* Location */}
                         <div className="form-group">

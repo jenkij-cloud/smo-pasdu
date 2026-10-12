@@ -124,6 +124,9 @@ export default function AdminDashboard() {
             return (
                 (r.borrowerName && r.borrowerName.toLowerCase().includes(kw)) ||
                 (r.studentId && r.studentId.toLowerCase().includes(kw)) ||
+                (r.staffId && r.staffId.toLowerCase().includes(kw)) ||
+                (r.affiliation && r.affiliation.toLowerCase().includes(kw)) ||
+                (r.position && r.position.toLowerCase().includes(kw)) ||
                 (studentEmail && studentEmail.includes(kw)) ||
                 (r.phone && r.phone.toLowerCase().includes(kw)) ||
                 (r.equipmentName && r.equipmentName.toLowerCase().includes(kw)) ||
@@ -538,14 +541,18 @@ export default function AdminDashboard() {
                                                             title="คลิกเพื่อดูรายละเอียด"
                                                         >
                                                             <strong>{request.borrowerName}</strong>
-                                                            <div className="cell-subtext">
-                                                                {request.studentId}
+                                                            <div className="cell-subtext" style={{ marginTop: '2px', display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                                {request.borrowerType === 'staff' ? (
+                                                                    <span className="badge-borrower-type staff">👔 บุคลากร ({request.affiliation || 'เจ้าหน้าที่'})</span>
+                                                                ) : (
+                                                                    <span className="badge-borrower-type student">🎓 {request.studentId}</span>
+                                                                )}
                                                             </div>
                                                             <div className="cell-email">
                                                                 <a
                                                                     href={mailtoUrl}
                                                                     className="link-student-email-sm"
-                                                                    title="คลิกเพื่อส่งอีเมลหานิสิต"
+                                                                    title="คลิกเพื่อส่งอีเมลหาผู้ยืม"
                                                                     onClick={(e) => e.stopPropagation()}
                                                                 >
                                                                     📧 {studentEmail}
