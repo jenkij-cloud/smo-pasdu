@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // คลังครุภัณฑ์: ทุกคนดูได้ แต่เฉพาะ Admin ที่ล็อกอินแล้วเท่านั้นที่แก้ไข/เพิ่ม/ลบได้
+    match /equipments/{equipmentId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // รายการคำขอยืม:
+    // - ทุกคนอ่านได้ (สำหรับค้นหาตรวจสอบสถานะของตนเอง)
+    // - ทุกคนยื่นคำขอใหม่ได้ (create)
+    // - แก้ไขหรือลบคำขอได้เฉพาะ Admin ที่ล็อกอินแล้วเท่านั้น
+    match /borrowRequests/{requestId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+  }
+}

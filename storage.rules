@@ -1,0 +1,10 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /equipments/{allPaths=**} {
+      // รูปภาพครุภัณฑ์: ทุกคนสามารถเข้าชมได้ แต่เฉพาะ Admin ที่ล็อกอินแล้วที่สามารถอัปโหลดหรือลบได้
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
