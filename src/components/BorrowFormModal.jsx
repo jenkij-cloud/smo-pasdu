@@ -26,7 +26,6 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
         borrowerType: 'student', // 'student' | 'staff'
         borrowerName: '',
         studentId: '',
-        staffId: '',
         staffEmail: '',
         phone: '',
         affiliation: '',
@@ -47,6 +46,14 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
     const contactEmail = formData.borrowerType === 'student'
         ? studentEmail
         : formData.staffEmail.trim();
+
+    const handleQuantityChange = (delta) => {
+        setFormData(prev => {
+            const cur = parseInt(prev.quantity, 10) || 1;
+            const next = Math.max(1, Math.min(equipment.quantity, cur + delta));
+            return { ...prev, quantity: next };
+        });
+    };
 
     const handleTypeSwitch = (type) => {
         setFormData(prev => ({ ...prev, borrowerType: type }));
@@ -176,7 +183,7 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                 newErrors.staffEmail = 'รูปแบบอีเมลไม่ถูกต้อง';
             }
             if (!formData.affiliation.trim()) {
-                newErrors.affiliation = 'กรุณาระบุสังกัด / ภาควิชา / คณะ / หน่วยงาน';
+                newErrors.affiliation = 'กรุณากรอกคณะ';
             }
         }
         
@@ -240,13 +247,14 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
             await onSubmit({
                 ...formData,
                 borrowerType: formData.borrowerType,
-                studentId: formData.borrowerType === 'student' ? formData.studentId.trim() : (formData.staffId.trim() || '-'),
-                staffId: formData.borrowerType === 'staff' ? formData.staffId.trim() : '',
+                studentId: formData.borrowerType === 'student' ? formData.studentId.trim() : '-',
+                staffId: '',
                 position: formData.borrowerType === 'staff' ? formData.position.trim() : '',
                 studentEmail: contactEmail,
                 borrowerEmail: contactEmail,
                 contactEmail: contactEmail,
                 affiliation: formData.affiliation.trim(),
+                quantity: parseInt(formData.quantity, 10) || 1,
                 equipmentId: equipment.id,
                 equipmentName: equipment.name,
                 equipmentCategory: equipment.category || '',
@@ -385,14 +393,14 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                                     </div>
                                 </div>
 
-                                {/* Student: Affiliation & Quantity */}
+                                {/* Student: Faculty & Quantity */}
                                 <div className="form-row">
                                     <div className="form-group">
-                                        <label className="form-label">สังกัด / ชมรม / สาขาวิชา</label>
+                                        <label className="form-label">คณะ</label>
                                         <input
                                             type="text"
                                             className="form-input"
-                                            placeholder="เช่น สาขาวิชาวิทยาการคอมพิวเตอร์ หรือ ชมรมดนตรีสากล"
+                                            placeholder="เช่น คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล"
                                             value={formData.affiliation}
                                             onChange={e => setFormData({ ...formData, affiliation: e.target.value })}
                                         />
@@ -402,20 +410,52 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                                         <label className="form-label">
                                             จำนวนที่ต้องการยืม <span className="required">*</span>
                                         </label>
-                                        <input
-                                            type="number"
-                                            className="form-input"
-                                            min="1"
-                                            max={equipment.quantity}
-                                            value={formData.quantity}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setFormData({
-                                                    ...formData,
-                                                    quantity: val === "" ? "" : parseInt(val)
-                                                });
-                                            }}
-                                        />
+                                        <div className="quantity-stepper">
+                                            <button
+                                                type="button"
+                                                className="btn-stepper btn-stepper-minus"
+                                                disabled={Number(formData.quantity) <= 1}
+                                                onClick={() => handleQuantityChange(-1)}
+                                                title="ลดจำนวน"
+                                                aria-label="ลดจำนวน"
+                                            >
+                                                −
+                                            </button>
+                                            <input
+                                                type="number"
+                                                className="stepper-input"
+                                                min="1"
+                                                max={equipment.quantity}
+                                                value={formData.quantity}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === '') {
+                                                        setFormData(prev => ({ ...prev, quantity: '' }));
+                                                    } else {
+                                                        const num = parseInt(val, 10);
+                                                        if (!isNaN(num)) {
+                                                            setFormData(prev => ({ ...prev, quantity: Math.max(1, Math.min(equipment.quantity, num)) }));
+                                                        }
+                                                    }
+                                                }}
+                                                onBlur={() => {
+                                                    if (!formData.quantity || formData.quantity < 1) {
+                                                        setFormData(prev => ({ ...prev, quantity: 1 }));
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="btn-stepper btn-stepper-plus"
+                                                disabled={Number(formData.quantity) >= equipment.quantity}
+                                                onClick={() => handleQuantityChange(1)}
+                                                title="เพิ่มจำนวน"
+                                                aria-label="เพิ่มจำนวน"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                        <small className="stepper-helper">คงเหลือในคลัง {equipment.quantity} ชิ้น</small>
                                         {errors.quantity && <p className="form-error">{errors.quantity}</p>}
                                     </div>
                                 </div>
@@ -458,16 +498,16 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                                     </div>
                                 </div>
 
-                                {/* Staff: Affiliation & Position */}
+                                {/* Staff: Faculty & Position */}
                                 <div className="form-row">
                                     <div className="form-group">
                                         <label className="form-label">
-                                            หน่วยงาน / ภาควิชา / คณะ <span className="required">*</span>
+                                            คณะ <span className="required">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             className="form-input"
-                                            placeholder="เช่น สาขาวิชาวิทยาการคอมพิวเตอร์ หรือ สำนักงานคณะ"
+                                            placeholder="เช่น คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล"
                                             value={formData.affiliation}
                                             onChange={e => setFormData({ ...formData, affiliation: e.target.value })}
                                         />
@@ -486,39 +526,58 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                                     </div>
                                 </div>
 
-                                {/* Staff: Staff ID (optional) & Quantity */}
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">รหัสบุคลากร (ถ้ามี)</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            placeholder="ระบุรหัสบุคลากร (ไม่บังคับ)"
-                                            value={formData.staffId}
-                                            onChange={e => setFormData({ ...formData, staffId: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">
-                                            จำนวนที่ต้องการยืม <span className="required">*</span>
-                                        </label>
+                                {/* Staff: Quantity */}
+                                <div className="form-group">
+                                    <label className="form-label">
+                                        จำนวนที่ต้องการยืม <span className="required">*</span>
+                                    </label>
+                                    <div className="quantity-stepper">
+                                        <button
+                                            type="button"
+                                            className="btn-stepper btn-stepper-minus"
+                                            disabled={Number(formData.quantity) <= 1}
+                                            onClick={() => handleQuantityChange(-1)}
+                                            title="ลดจำนวน"
+                                            aria-label="ลดจำนวน"
+                                        >
+                                            −
+                                        </button>
                                         <input
                                             type="number"
-                                            className="form-input"
+                                            className="stepper-input"
                                             min="1"
                                             max={equipment.quantity}
                                             value={formData.quantity}
                                             onChange={(e) => {
                                                 const val = e.target.value;
-                                                setFormData({
-                                                    ...formData,
-                                                    quantity: val === "" ? "" : parseInt(val)
-                                                });
+                                                if (val === '') {
+                                                    setFormData(prev => ({ ...prev, quantity: '' }));
+                                                } else {
+                                                    const num = parseInt(val, 10);
+                                                    if (!isNaN(num)) {
+                                                        setFormData(prev => ({ ...prev, quantity: Math.max(1, Math.min(equipment.quantity, num)) }));
+                                                    }
+                                                }
+                                            }}
+                                            onBlur={() => {
+                                                if (!formData.quantity || formData.quantity < 1) {
+                                                    setFormData(prev => ({ ...prev, quantity: 1 }));
+                                                }
                                             }}
                                         />
-                                        {errors.quantity && <p className="form-error">{errors.quantity}</p>}
+                                        <button
+                                            type="button"
+                                            className="btn-stepper btn-stepper-plus"
+                                            disabled={Number(formData.quantity) >= equipment.quantity}
+                                            onClick={() => handleQuantityChange(1)}
+                                            title="เพิ่มจำนวน"
+                                            aria-label="เพิ่มจำนวน"
+                                        >
+                                            +
+                                        </button>
                                     </div>
+                                    <small className="stepper-helper">คงเหลือในคลัง {equipment.quantity} ชิ้น</small>
+                                    {errors.quantity && <p className="form-error">{errors.quantity}</p>}
                                 </div>
                             </>
                         )}

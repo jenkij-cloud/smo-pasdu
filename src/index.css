@@ -2469,4 +2469,78 @@ body {
   border: 1px solid #e9d5ff;
 }
 
+/* ===== Quantity Stepper (+ -) ===== */
+.quantity-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: white;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 180px;
+}
+
+.btn-stepper {
+  width: 44px;
+  height: 42px;
+  border: none;
+  background: #f8fafc;
+  color: var(--text-primary);
+  font-size: 1.35rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  user-select: none;
+  line-height: 1;
+}
+
+.btn-stepper:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: var(--primary);
+}
+
+.btn-stepper:active:not(:disabled) {
+  background: #cbd5e1;
+}
+
+.btn-stepper:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.stepper-input {
+  flex: 1;
+  height: 42px;
+  border: none !important;
+  border-left: 1px solid var(--border) !important;
+  border-right: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 0 0.5rem;
+  box-shadow: none !important;
+  -moz-appearance: textfield;
+}
+
+.stepper-input::-webkit-outer-spin-button,
+.stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.stepper-helper {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.3rem;
+  display: block;
+}
+
 

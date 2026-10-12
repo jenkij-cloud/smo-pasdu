@@ -90,14 +90,8 @@ export default function RequestDetailModal({
                                             <span>{request.position}</span>
                                         </div>
                                     )}
-                                    {request.staffId && (
-                                        <div className="detail-row">
-                                            <span className="detail-label">รหัสบุคลากร:</span>
-                                            <span>{request.staffId}</span>
-                                        </div>
-                                    )}
                                     <div className="detail-row">
-                                        <span className="detail-label">สังกัด / คณะ / หน่วยงาน:</span>
+                                        <span className="detail-label">คณะ:</span>
                                         <span>{request.affiliation || '-'}</span>
                                     </div>
                                     <div className="detail-row">
@@ -124,7 +118,7 @@ export default function RequestDetailModal({
                                         </span>
                                     </div>
                                     <div className="detail-row">
-                                        <span className="detail-label">สังกัด / สาขา:</span>
+                                        <span className="detail-label">คณะ:</span>
                                         <span>{request.affiliation || '-'}</span>
                                     </div>
                                 </>
