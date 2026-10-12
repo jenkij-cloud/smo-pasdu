@@ -357,15 +357,15 @@ export default function AdminDashboard() {
                         <h2>🛠️ แผงควบคุมผู้ดูแลระบบ (Admin)</h2>
                         <p>จัดการคำขอยืม ตรวจสอบสต็อก และควบคุมครุภัณฑ์สโมสรนิสิต</p>
                     </div>
-                    <div className="admin-quick-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div className="admin-quick-actions">
                         <button
-                            className="btn btn-secondary"
+                            className="btn btn-secondary admin-action-btn"
                             onClick={() => setShowEmailConfig(true)}
                             title="ตั้งค่าระบบส่งอีเมลอัตโนมัติ"
                         >
                             📧 ตั้งค่าอีเมล ({OFFICIAL_SENDER_EMAIL})
                         </button>
-                        <button className="btn btn-warning" onClick={exportToCSV}>
+                        <button className="btn btn-warning admin-action-btn" onClick={exportToCSV}>
                             📥 Export CSV
                         </button>
                     </div>
@@ -390,28 +390,44 @@ export default function AdminDashboard() {
                     <>
                         {/* Stats Cards */}
                         <div className="stats-grid">
-                            <div className="stat-card pending" onClick={() => { setStatusFilter('pending'); setCurrentPage(1); }} style={{ cursor: 'pointer' }}>
+                            <div
+                                className={`stat-card pending ${statusFilter === 'pending' ? 'active-stat' : ''}`}
+                                onClick={() => { setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending'); setCurrentPage(1); }}
+                                style={{ cursor: 'pointer' }}
+                            >
                                 <div className="stat-icon">🟡</div>
                                 <div className="stat-info">
                                     <h4>รอดำเนินการ</h4>
                                     <div className="stat-number">{stats.pending}</div>
                                 </div>
                             </div>
-                            <div className="stat-card approved" onClick={() => { setStatusFilter('approved'); setCurrentPage(1); }} style={{ cursor: 'pointer' }}>
+                            <div
+                                className={`stat-card approved ${statusFilter === 'approved' ? 'active-stat' : ''}`}
+                                onClick={() => { setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved'); setCurrentPage(1); }}
+                                style={{ cursor: 'pointer' }}
+                            >
                                 <div className="stat-icon">🟢</div>
                                 <div className="stat-info">
                                     <h4>อนุมัติแล้ว</h4>
                                     <div className="stat-number">{stats.approved}</div>
                                 </div>
                             </div>
-                            <div className="stat-card rejected" onClick={() => { setStatusFilter('rejected'); setCurrentPage(1); }} style={{ cursor: 'pointer' }}>
+                            <div
+                                className={`stat-card rejected ${statusFilter === 'rejected' ? 'active-stat' : ''}`}
+                                onClick={() => { setStatusFilter(statusFilter === 'rejected' ? 'all' : 'rejected'); setCurrentPage(1); }}
+                                style={{ cursor: 'pointer' }}
+                            >
                                 <div className="stat-icon">🔴</div>
                                 <div className="stat-info">
                                     <h4>ปฏิเสธ</h4>
                                     <div className="stat-number">{stats.rejected}</div>
                                 </div>
                             </div>
-                            <div className="stat-card returned" onClick={() => { setStatusFilter('returned'); setCurrentPage(1); }} style={{ cursor: 'pointer' }}>
+                            <div
+                                className={`stat-card returned ${statusFilter === 'returned' ? 'active-stat' : ''}`}
+                                onClick={() => { setStatusFilter(statusFilter === 'returned' ? 'all' : 'returned'); setCurrentPage(1); }}
+                                style={{ cursor: 'pointer' }}
+                            >
                                 <div className="stat-icon">🔵</div>
                                 <div className="stat-info">
                                     <h4>คืนแล้ว</h4>
@@ -419,7 +435,11 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
                             {stats.overdue > 0 && (
-                                <div className="stat-card overdue" onClick={() => { setStatusFilter('overdue'); setCurrentPage(1); }} style={{ cursor: 'pointer' }}>
+                                <div
+                                    className={`stat-card overdue ${statusFilter === 'overdue' ? 'active-stat' : ''}`}
+                                    onClick={() => { setStatusFilter(statusFilter === 'overdue' ? 'all' : 'overdue'); setCurrentPage(1); }}
+                                    style={{ cursor: 'pointer' }}
+                                >
                                     <div className="stat-icon">🔥</div>
                                     <div className="stat-info">
                                         <h4>เกินกำหนดคืน</h4>
@@ -509,7 +529,9 @@ export default function AdminDashboard() {
                                     <p>ไม่มีรายการที่ตรงกับเงื่อนไขการค้นหาหรือตัวกรองนี้</p>
                                 </div>
                             ) : (
-                                <table className="data-table">
+                                <>
+                                {/* Desktop Table */}
+                                <table className="data-table desktop-only-table">
                                     <thead>
                                         <tr>
                                             <th>ลำดับ</th>
@@ -659,6 +681,119 @@ export default function AdminDashboard() {
                                         })}
                                     </tbody>
                                 </table>
+
+                                {/* Mobile Card List */}
+                                <div className="mobile-request-cards">
+                                    {paginatedRequests.map((request, index) => {
+                                        const overdue = isOverdue(request);
+                                        const seqNumber = (currentPage - 1) * itemsPerPage + index + 1;
+                                        const studentEmail = request.studentEmail || getStudentEmail(request.studentId);
+
+                                        return (
+                                            <div
+                                                key={request.id}
+                                                className={`mobile-req-card ${overdue ? 'mobile-req-card-overdue' : ''}`}
+                                            >
+                                                <div className="mobile-req-card-top" onClick={() => setDetailRequest(request)}>
+                                                    <div className="mobile-req-card-header">
+                                                        <span className="mobile-req-seq">#{seqNumber}</span>
+                                                        <StatusBadge status={overdue ? 'overdue' : request.status} />
+                                                    </div>
+                                                    <div className="mobile-req-card-name">
+                                                        <strong>{request.borrowerName}</strong>
+                                                        {request.borrowerType === 'staff' ? (
+                                                            <span className="badge-borrower-type staff">👔 บุคลากร</span>
+                                                        ) : (
+                                                            <span className="badge-borrower-type student">🎓 {request.studentId}</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="mobile-req-card-email">📧 {studentEmail}</div>
+                                                </div>
+
+                                                <div className="mobile-req-card-details">
+                                                    <div className="mobile-req-detail-row">
+                                                        <span className="mobile-req-label">📦 ครุภัณฑ์</span>
+                                                        <span className="mobile-req-value"><strong>{request.equipmentName}</strong> ×{request.quantity}</span>
+                                                    </div>
+                                                    {request.location && (
+                                                        <div className="mobile-req-detail-row">
+                                                            <span className="mobile-req-label">📍 สถานที่</span>
+                                                            <span className="mobile-req-value">{request.location}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="mobile-req-detail-row">
+                                                        <span className="mobile-req-label">📅 วันยืม-คืน</span>
+                                                        <span className="mobile-req-value">
+                                                            {(() => {
+                                                                const range = formatDateTimeRange(request.borrowDate, request.returnDate);
+                                                                if (typeof range === 'string') return range;
+                                                                if (range.isSameDay) {
+                                                                    return <>{range.dateStr} <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{range.timeRange}</span></>;
+                                                                }
+                                                                return <>{range.bDateStr} → {range.rDateStr}</>;
+                                                            })()}
+                                                        </span>
+                                                    </div>
+                                                    {overdue && (
+                                                        <div className="mobile-req-overdue-badge">
+                                                            🔥 {getOverdueText(request) || 'เกินกำหนดคืน'}
+                                                        </div>
+                                                    )}
+                                                    {request.status === 'rejected' && request.rejectReason && (
+                                                        <div className="mobile-req-reject-reason">
+                                                            💬 {request.rejectReason}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="mobile-req-card-actions">
+                                                    <button
+                                                        className="btn btn-secondary mobile-action-btn"
+                                                        onClick={() => setDetailRequest(request)}
+                                                    >
+                                                        👁️ ดูรายละเอียด
+                                                    </button>
+
+                                                    {overdue && (
+                                                        <a
+                                                            href={createMailtoUrl('overdue', request)}
+                                                            className="btn btn-warning mobile-action-btn"
+                                                        >
+                                                            ✉️ ส่งเตือน
+                                                        </a>
+                                                    )}
+
+                                                    {request.status === 'pending' && (
+                                                        <>
+                                                            <button
+                                                                className="btn btn-success mobile-action-btn"
+                                                                onClick={() => handleStatusChange(request.id, 'approved')}
+                                                            >
+                                                                ✓ อนุมัติ
+                                                            </button>
+                                                            <button
+                                                                className="btn btn-danger mobile-action-btn"
+                                                                onClick={() => setRejectingRequest(request)}
+                                                            >
+                                                                ✕ ปฏิเสธ
+                                                            </button>
+                                                        </>
+                                                    )}
+
+                                                    {request.status === 'approved' && (
+                                                        <button
+                                                            className="btn btn-primary mobile-action-btn"
+                                                            onClick={() => handleStatusChange(request.id, 'returned')}
+                                                        >
+                                                            📥 รับคืน
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                </>
                             )}
 
                             {/* Pagination */}
@@ -723,7 +858,8 @@ export default function AdminDashboard() {
                                     <p>กดปุ่ม "เพิ่มครุภัณฑ์ใหม่" เพื่อเริ่มต้นบันทึกข้อมูลเข้าคลัง</p>
                                 </div>
                             ) : (
-                                <table className="data-table">
+                                <>
+                                <table className="data-table desktop-only-table">
                                     <thead>
                                         <tr>
                                             <th>รูปภาพ</th>
@@ -788,6 +924,71 @@ export default function AdminDashboard() {
                                         ))}
                                     </tbody>
                                 </table>
+
+                                {/* Mobile Equipment Cards */}
+                                <div className="mobile-equipment-cards">
+                                    {filteredEquipmentsList.map((equipment) => (
+                                        <div key={equipment.id} className="mobile-equip-card">
+                                            <div className="mobile-equip-card-top">
+                                                <div className="mobile-equip-thumb-wrap">
+                                                    {equipment.imageUrl ? (
+                                                        <img
+                                                            src={equipment.imageUrl}
+                                                            alt={equipment.name}
+                                                            className="mobile-equip-thumb"
+                                                        />
+                                                    ) : (
+                                                        <div className="mobile-equip-thumb-fallback">📦</div>
+                                                    )}
+                                                </div>
+                                                <div className="mobile-equip-info">
+                                                    <div className="mobile-equip-name">{equipment.name}</div>
+                                                    {equipment.location && (
+                                                        <div className="mobile-equip-location">📍 {equipment.location}</div>
+                                                    )}
+                                                    <div className="mobile-equip-tags">
+                                                        <span className="card-category">{equipment.category}</span>
+                                                        <span className={`badge-cond badge-cond-${equipment.condition || 'good'}`}>
+                                                            {equipment.condition === 'excellent' ? '🟢 ดีมาก' :
+                                                             equipment.condition === 'fair' ? '🟡 พอใช้' : '🔵 ปกติ'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mobile-equip-details">
+                                                <div className="mobile-equip-detail-row">
+                                                    <span className="mobile-equip-label">รหัส SN</span>
+                                                    <span className="mobile-equip-val">
+                                                        {equipment.serialNumber ? <code>{equipment.serialNumber}</code> : '-'}
+                                                    </span>
+                                                </div>
+                                                <div className="mobile-equip-detail-row">
+                                                    <span className="mobile-equip-label">คงเหลือในคลัง</span>
+                                                    <span className={`mobile-equip-val badge-qty ${equipment.quantity === 0 ? 'qty-zero' : ''}`}>
+                                                        {equipment.quantity} ชิ้น
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="mobile-equip-actions">
+                                                <button
+                                                    className="btn btn-secondary mobile-action-btn"
+                                                    onClick={() => { setEditingEquipment(equipment); setShowEquipmentForm(true); }}
+                                                >
+                                                    ✏️ แก้ไขข้อมูล
+                                                </button>
+                                                <button
+                                                    className="btn btn-danger mobile-action-btn"
+                                                    onClick={() => handleDeleteEquipment(equipment)}
+                                                >
+                                                    🗑️ ลบ
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                </>
                             )}
                         </div>
                     </>

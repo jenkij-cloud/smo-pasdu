@@ -202,8 +202,8 @@ export default function RequestDetailModal({
                     </div>
                 </div>
 
-                <div className="modal-footer" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="modal-footer modal-footer-detail">
+                    <div className="modal-footer-secondary-actions">
                         <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopySlip}>
                             📋 คัดลอกข้อมูล
                         </button>
@@ -217,7 +217,7 @@ export default function RequestDetailModal({
                             ✉️ ส่งอีเมลหานิสิต
                         </a>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className="modal-footer-primary-actions">
                         {isAdmin && request.status === 'pending' && (
                             <>
                                 <button
