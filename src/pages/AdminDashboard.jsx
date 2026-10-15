@@ -335,8 +335,8 @@ export default function AdminDashboard() {
         });
     };
 
-    // Export CSV with UTF-8 BOM
-    const exportToCSV = () => {
+    // Export Excel (.xls / SpreadsheetML) ที่เปิดและแก้ไขใน Microsoft Excel ได้ 100%
+    const exportToExcel = () => {
         const dataToExport = filteredRequests;
         if (dataToExport.length === 0) {
             toast.warning('ไม่มีข้อมูลสำหรับ Export');
@@ -345,14 +345,15 @@ export default function AdminDashboard() {
 
         const headers = [
             'ลำดับ',
-            'รหัสอ้างอิง',
+            'รหัสคำขอ',
             'ชื่อผู้ยืม',
-            'รหัสนิสิต',
-            'อีเมลมหาวิทยาลัย (@tsu.ac.th)',
-            'เบอร์โทร',
-            'สังกัด/สาขา',
-            'ครุภัณฑ์',
-            'จำนวน',
+            'ประเภทผู้ยืม',
+            'รหัสนิสิต / บุคลากร',
+            'อีเมล (@tsu.ac.th)',
+            'เบอร์โทรศัพท์',
+            'สังกัด / คณะ',
+            'รายการครุภัณฑ์ที่ยืม',
+            'จำนวนรวม (ชิ้น)',
             'สถานที่ใช้งาน',
             'วันที่ยืม',
             'กำหนดคืน',
@@ -373,32 +374,179 @@ export default function AdminDashboard() {
             returned: 'คืนแล้ว'
         };
 
-        const rows = dataToExport.map((r, index) => [
-            index + 1,
-            r.id,
-            r.borrowerName,
-            r.studentId,
-            r.studentEmail || getStudentEmail(r.studentId),
-            r.phone,
-            r.affiliation || '-',
-            r.equipmentName,
-            r.quantity,
-            r.location || '-',
-            formatDate(r.borrowDate),
-            formatDate(r.returnDate),
-            r.purpose || '-',
-            statusLabels[r.status] || r.status,
-            r.rejectReason || '-',
-            formatDate(r.requestDate, true),
-            formatDate(r.approvedDate, true),
-            formatDate(r.returnedDate, true),
-            r.returnedReceiverName || '-',
-            r.returnNotes || '-'
-        ]);
+        let tableHtml = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>ประวัติการยืมครุภัณฑ์_SMO</x:Name>
+                    <x:WorksheetOptions>
+                        <x:DisplayGridlines/>
+                    </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style>
+        table { border-collapse: collapse; font-family: 'Segoe UI', Tahoma, 'Prompt', sans-serif; font-size: 10pt; }
+        th { background-color: #1a237e; color: #ffffff; font-weight: bold; border: 1px solid #0f172a; padding: 8px 12px; text-align: center; }
+        td { border: 1px solid #cbd5e1; padding: 6px 10px; vertical-align: middle; }
+        .text-cell { mso-number-format:"\\@"; } /* บังคับให้ Excel แสดงเป็นข้อความ ไม่ตัด 0 นำหน้า และไม่แสดงเป็น 6.72E+09 */
+        .num-cell { mso-number-format:"#,##0"; text-align: center; }
+        .date-cell { text-align: center; }
+        .status-pending { background-color: #fef3c7; color: #b45309; font-weight: bold; text-align: center; }
+        .status-approved { background-color: #d1fae5; color: #065f46; font-weight: bold; text-align: center; }
+        .status-rejected { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
+        .status-returned { background-color: #dbeafe; color: #1e40af; font-weight: bold; text-align: center; }
+    </style>
+</head>
+<body>
+    <table border="1">
+        <thead>
+            <tr>
+                ${headers.map(h => `<th>${h}</th>`).join('')}
+            </tr>
+        </thead>
+        <tbody>
+        `;
 
-        const csvContent = '\uFEFF' + [headers, ...rows]
-            .map(row => row.map(cell => `"${String(cell || '').replace(/"/g, '""')}"`).join(','))
-            .join('\n');
+        dataToExport.forEach((r, idx) => {
+            const hasMulti = r.items && Array.isArray(r.items) && r.items.length > 0;
+            const equipStr = hasMulti
+                ? r.items.map(it => `${it.equipmentName} (${it.quantity || 1} ชิ้น)`).join(' + ')
+                : (r.equipmentName || '-');
+            const totalQty = r.totalQuantity || r.quantity || (hasMulti ? r.items.reduce((s, i) => s + (i.quantity || 1), 0) : 1);
+            const identifier = r.borrowerType === 'staff' ? (r.staffId || r.position || 'อาจารย์/บุคลากร') : (r.studentId || '-');
+            const borrowerEmail = r.studentEmail || r.borrowerEmail || r.contactEmail || getStudentEmail(r.studentId) || '-';
+
+            tableHtml += `
+            <tr>
+                <td class="num-cell">${idx + 1}</td>
+                <td class="text-cell">${r.id}</td>
+                <td>${r.borrowerName || '-'}</td>
+                <td style="text-align: center;">${r.borrowerType === 'staff' ? 'อาจารย์/บุคลากร' : 'นิสิต'}</td>
+                <td class="text-cell">${identifier}</td>
+                <td class="text-cell">${borrowerEmail}</td>
+                <td class="text-cell">${r.phone || '-'}</td>
+                <td>${r.affiliation || '-'}</td>
+                <td>${equipStr}</td>
+                <td class="num-cell">${totalQty}</td>
+                <td>${r.location || '-'}</td>
+                <td class="date-cell">${formatDate(r.borrowDate, true)}</td>
+                <td class="date-cell">${formatDate(r.returnDate, true)}</td>
+                <td>${r.purpose || '-'}</td>
+                <td class="status-${r.status}">${statusLabels[r.status] || r.status}</td>
+                <td>${r.rejectReason || '-'}</td>
+                <td class="date-cell">${formatDate(r.requestDate, true)}</td>
+                <td class="date-cell">${formatDate(r.approvedDate, true)}</td>
+                <td class="date-cell">${formatDate(r.returnedDate, true)}</td>
+                <td class="text-cell">${r.returnedReceiverName || '-'}</td>
+                <td>${r.returnNotes || '-'}</td>
+            </tr>
+            `;
+        });
+
+        tableHtml += `
+        </tbody>
+    </table>
+</body>
+</html>
+        `;
+
+        const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `รายงานการยืมครุภัณฑ์_SMO_${new Date().toISOString().split('T')[0]}.xls`;
+        link.click();
+        toast.success('ดาวน์โหลดไฟล์ Excel (.xls) สำเร็จ! สามารถเปิดและแก้ไขในโปรแกรม Excel ได้ทันที');
+    };
+
+    // Export CSV แบบรองรับ Microsoft Excel (ใส่ sep=, และฟอร์แมตข้อความป้องกันรหัส/เบอร์เพี้ยน)
+    const exportToCSV = () => {
+        const dataToExport = filteredRequests;
+        if (dataToExport.length === 0) {
+            toast.warning('ไม่มีข้อมูลสำหรับ Export');
+            return;
+        }
+
+        const headers = [
+            'ลำดับ',
+            'รหัสคำขอ',
+            'ชื่อผู้ยืม',
+            'ประเภทผู้ยืม',
+            'รหัสนิสิต / บุคลากร',
+            'อีเมล (@tsu.ac.th)',
+            'เบอร์โทร',
+            'สังกัด/คณะ',
+            'ครุภัณฑ์',
+            'จำนวนรวม (ชิ้น)',
+            'สถานที่ใช้งาน',
+            'วันที่ยืม',
+            'กำหนดคืน',
+            'วัตถุประสงค์',
+            'สถานะ',
+            'เหตุผลที่ปฏิเสธ',
+            'วันที่ยื่นคำขอ',
+            'วันที่อนุมัติ',
+            'วันที่คืนจริง',
+            'ผู้รับคืน',
+            'หมายเหตุการรับคืน'
+        ];
+
+        const statusLabels = {
+            pending: 'รอดำเนินการ',
+            approved: 'อนุมัติแล้ว',
+            rejected: 'ปฏิเสธ',
+            returned: 'คืนแล้ว'
+        };
+
+        // ฟังก์ชันช่วยจัดรูปแบบข้อความสำหรับ Excel เพื่อไม่ให้ตัดเลข 0 นำหน้า และไม่แสดงเป็นตัวเลขวิทยาศาสตร์ (Scientific Notation)
+        const formatForExcel = (val) => {
+            const clean = String(val || '').replace(/"/g, '""');
+            return `="${clean}"`;
+        };
+
+        const rows = dataToExport.map((r, index) => {
+            const hasMulti = r.items && Array.isArray(r.items) && r.items.length > 0;
+            const equipStr = hasMulti
+                ? r.items.map(it => `${it.equipmentName} (${it.quantity || 1} ชิ้น)`).join(' + ')
+                : (r.equipmentName || '-');
+            const totalQty = r.totalQuantity || r.quantity || (hasMulti ? r.items.reduce((s, i) => s + (i.quantity || 1), 0) : 1);
+            const identifier = r.borrowerType === 'staff' ? (r.staffId || r.position || 'อาจารย์/บุคลากร') : (r.studentId || '-');
+            const borrowerEmail = r.studentEmail || r.borrowerEmail || r.contactEmail || getStudentEmail(r.studentId) || '-';
+
+            return [
+                index + 1,
+                formatForExcel(r.id),
+                `"${String(r.borrowerName || '').replace(/"/g, '""')}"`,
+                `"${r.borrowerType === 'staff' ? 'อาจารย์/บุคลากร' : 'นิสิต'}"`,
+                formatForExcel(identifier),
+                `"${borrowerEmail}"`,
+                formatForExcel(r.phone || '-'),
+                `"${String(r.affiliation || '-').replace(/"/g, '""')}"`,
+                `"${equipStr.replace(/"/g, '""')}"`,
+                totalQty,
+                `"${String(r.location || '-').replace(/"/g, '""')}"`,
+                `"${formatDate(r.borrowDate, true)}"`,
+                `"${formatDate(r.returnDate, true)}"`,
+                `"${String(r.purpose || '-').replace(/"/g, '""')}"`,
+                `"${statusLabels[r.status] || r.status}"`,
+                `"${String(r.rejectReason || '-').replace(/"/g, '""')}"`,
+                `"${formatDate(r.requestDate, true)}"`,
+                `"${formatDate(r.approvedDate, true)}"`,
+                `"${formatDate(r.returnedDate, true)}"`,
+                formatForExcel(r.returnedReceiverName || '-'),
+                `"${String(r.returnNotes || '-').replace(/"/g, '""')}"`
+            ];
+        });
+
+        // ใส่ sep=, บรรทัดแรกสุด เพื่อบังคับให้ Excel แยกคอลัมน์ด้วยคอมม่าอัตโนมัติ ไม่ไปกองรวมในคอลัมน์ A
+        const csvContent = '\uFEFFsep=,\r\n' + [headers.map(h => `"${h}"`).join(','), ...rows.map(r => r.join(','))].join('\r\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -452,8 +600,21 @@ export default function AdminDashboard() {
                         >
                             📧 ตั้งค่าอีเมล ({OFFICIAL_SENDER_EMAIL})
                         </button>
-                        <button className="btn btn-warning admin-action-btn" onClick={exportToCSV}>
-                            📥 Export CSV
+                        <button
+                            className="btn btn-success admin-action-btn"
+                            onClick={exportToExcel}
+                            title="ดาวน์โหลดไฟล์สำหรับเปิดและแก้ไขใน Microsoft Excel (.xls) สไตล์ตารางทางการ"
+                            style={{ background: '#107c41', borderColor: '#107c41', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            📊 Export Excel (.xls)
+                        </button>
+                        <button
+                            className="btn btn-secondary admin-action-btn"
+                            onClick={exportToCSV}
+                            title="ดาวน์โหลดไฟล์ CSV (รองรับภาษาไทย และไม่ตัดเลข 0 นำหน้า)"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            📄 Export CSV
                         </button>
                     </div>
                 </div>
