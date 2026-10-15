@@ -459,10 +459,14 @@ export default function AdminDashboard() {
         `;
 
         const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `รายงานการยืมครุภัณฑ์_SMO_${new Date().toISOString().split('T')[0]}.xls`;
+        link.href = url;
+        link.download = `SMO_BorrowReport_${new Date().toISOString().split('T')[0]}.xls`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
         link.click();
+        setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 200);
         toast.success('ดาวน์โหลดไฟล์ Excel (.xls) สำเร็จ! สามารถเปิดและแก้ไขในโปรแกรม Excel ได้ทันที');
     };
 
@@ -549,10 +553,14 @@ export default function AdminDashboard() {
         const csvContent = '\uFEFFsep=,\r\n' + [headers.map(h => `"${h}"`).join(','), ...rows.map(r => r.join(','))].join('\r\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `รายงานการยืมครุภัณฑ์_SMO_${new Date().toISOString().split('T')[0]}.csv`;
+        link.href = url;
+        link.download = `SMO_BorrowReport_${new Date().toISOString().split('T')[0]}.csv`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
         link.click();
+        setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 200);
         toast.success('ดาวน์โหลดรายงาน CSV สำเร็จ!');
     };
 
