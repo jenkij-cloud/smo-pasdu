@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDate, isOverdue, formatDateTimeRange, getOverdueText, isDueSoon, getDueSoonText } from '../utils/dateUtils';
 import { sendBorrowNotification, getStudentEmail, createMailtoUrl, OFFICIAL_SENDER_EMAIL } from '../utils/notificationService';
+import * as XLSX from 'xlsx';
 
 export default function AdminDashboard() {
     const { user, loading: authLoading } = useAuth();
@@ -335,14 +336,8 @@ export default function AdminDashboard() {
         });
     };
 
-    // Export Excel (.xls / SpreadsheetML) ที่เปิดและแก้ไขใน Microsoft Excel ได้ 100%
-    const exportToExcel = () => {
-        const dataToExport = filteredRequests;
-        if (dataToExport.length === 0) {
-            toast.warning('ไม่มีข้อมูลสำหรับ Export');
-            return;
-        }
-
+    // ฟังก์ชันสร้างชุดข้อมูลสำหรับ Export
+    const generateExportData = (dataToExport) => {
         const headers = [
             'ลำดับ',
             'รหัสคำขอ',
@@ -374,147 +369,6 @@ export default function AdminDashboard() {
             returned: 'คืนแล้ว'
         };
 
-        let tableHtml = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <!--[if gte mso 9]>
-    <xml>
-        <x:ExcelWorkbook>
-            <x:ExcelWorksheets>
-                <x:ExcelWorksheet>
-                    <x:Name>ประวัติการยืมครุภัณฑ์_SMO</x:Name>
-                    <x:WorksheetOptions>
-                        <x:DisplayGridlines/>
-                    </x:WorksheetOptions>
-                </x:ExcelWorksheet>
-            </x:ExcelWorksheets>
-        </x:ExcelWorkbook>
-    </xml>
-    <![endif]-->
-    <style>
-        table { border-collapse: collapse; font-family: 'Segoe UI', Tahoma, 'Prompt', sans-serif; font-size: 10pt; }
-        th { background-color: #1a237e; color: #ffffff; font-weight: bold; border: 1px solid #0f172a; padding: 8px 12px; text-align: center; }
-        td { border: 1px solid #cbd5e1; padding: 6px 10px; vertical-align: middle; }
-        .text-cell { mso-number-format:"\\@"; } /* บังคับให้ Excel แสดงเป็นข้อความ ไม่ตัด 0 นำหน้า และไม่แสดงเป็น 6.72E+09 */
-        .num-cell { mso-number-format:"#,##0"; text-align: center; }
-        .date-cell { text-align: center; }
-        .status-pending { background-color: #fef3c7; color: #b45309; font-weight: bold; text-align: center; }
-        .status-approved { background-color: #d1fae5; color: #065f46; font-weight: bold; text-align: center; }
-        .status-rejected { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
-        .status-returned { background-color: #dbeafe; color: #1e40af; font-weight: bold; text-align: center; }
-    </style>
-</head>
-<body>
-    <table border="1">
-        <thead>
-            <tr>
-                ${headers.map(h => `<th>${h}</th>`).join('')}
-            </tr>
-        </thead>
-        <tbody>
-        `;
-
-        dataToExport.forEach((r, idx) => {
-            const hasMulti = r.items && Array.isArray(r.items) && r.items.length > 0;
-            const equipStr = hasMulti
-                ? r.items.map(it => `${it.equipmentName} (${it.quantity || 1} ชิ้น)`).join(' + ')
-                : (r.equipmentName || '-');
-            const totalQty = r.totalQuantity || r.quantity || (hasMulti ? r.items.reduce((s, i) => s + (i.quantity || 1), 0) : 1);
-            const identifier = r.borrowerType === 'staff' ? (r.staffId || r.position || 'อาจารย์/บุคลากร') : (r.studentId || '-');
-            const borrowerEmail = r.studentEmail || r.borrowerEmail || r.contactEmail || getStudentEmail(r.studentId) || '-';
-
-            tableHtml += `
-            <tr>
-                <td class="num-cell">${idx + 1}</td>
-                <td class="text-cell">${r.id}</td>
-                <td>${r.borrowerName || '-'}</td>
-                <td style="text-align: center;">${r.borrowerType === 'staff' ? 'อาจารย์/บุคลากร' : 'นิสิต'}</td>
-                <td class="text-cell">${identifier}</td>
-                <td class="text-cell">${borrowerEmail}</td>
-                <td class="text-cell">${r.phone || '-'}</td>
-                <td>${r.affiliation || '-'}</td>
-                <td>${equipStr}</td>
-                <td class="num-cell">${totalQty}</td>
-                <td>${r.location || '-'}</td>
-                <td class="date-cell">${formatDate(r.borrowDate, true)}</td>
-                <td class="date-cell">${formatDate(r.returnDate, true)}</td>
-                <td>${r.purpose || '-'}</td>
-                <td class="status-${r.status}">${statusLabels[r.status] || r.status}</td>
-                <td>${r.rejectReason || '-'}</td>
-                <td class="date-cell">${formatDate(r.requestDate, true)}</td>
-                <td class="date-cell">${formatDate(r.approvedDate, true)}</td>
-                <td class="date-cell">${formatDate(r.returnedDate, true)}</td>
-                <td class="text-cell">${r.returnedReceiverName || '-'}</td>
-                <td>${r.returnNotes || '-'}</td>
-            </tr>
-            `;
-        });
-
-        tableHtml += `
-        </tbody>
-    </table>
-</body>
-</html>
-        `;
-
-        const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `SMO_BorrowReport_${new Date().toISOString().split('T')[0]}.xls`;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 200);
-        toast.success('ดาวน์โหลดไฟล์ Excel (.xls) สำเร็จ! สามารถเปิดและแก้ไขในโปรแกรม Excel ได้ทันที');
-    };
-
-    // Export CSV แบบรองรับ Microsoft Excel (ใส่ sep=, และฟอร์แมตข้อความป้องกันรหัส/เบอร์เพี้ยน)
-    const exportToCSV = () => {
-        const dataToExport = filteredRequests;
-        if (dataToExport.length === 0) {
-            toast.warning('ไม่มีข้อมูลสำหรับ Export');
-            return;
-        }
-
-        const headers = [
-            'ลำดับ',
-            'รหัสคำขอ',
-            'ชื่อผู้ยืม',
-            'ประเภทผู้ยืม',
-            'รหัสนิสิต / บุคลากร',
-            'อีเมล (@tsu.ac.th)',
-            'เบอร์โทร',
-            'สังกัด/คณะ',
-            'ครุภัณฑ์',
-            'จำนวนรวม (ชิ้น)',
-            'สถานที่ใช้งาน',
-            'วันที่ยืม',
-            'กำหนดคืน',
-            'วัตถุประสงค์',
-            'สถานะ',
-            'เหตุผลที่ปฏิเสธ',
-            'วันที่ยื่นคำขอ',
-            'วันที่อนุมัติ',
-            'วันที่คืนจริง',
-            'ผู้รับคืน',
-            'หมายเหตุการรับคืน'
-        ];
-
-        const statusLabels = {
-            pending: 'รอดำเนินการ',
-            approved: 'อนุมัติแล้ว',
-            rejected: 'ปฏิเสธ',
-            returned: 'คืนแล้ว'
-        };
-
-        // ฟังก์ชันช่วยจัดรูปแบบข้อความสำหรับ Excel เพื่อไม่ให้ตัดเลข 0 นำหน้า และไม่แสดงเป็นตัวเลขวิทยาศาสตร์ (Scientific Notation)
-        const formatForExcel = (val) => {
-            const clean = String(val || '').replace(/"/g, '""');
-            return `="${clean}"`;
-        };
-
         const rows = dataToExport.map((r, index) => {
             const hasMulti = r.items && Array.isArray(r.items) && r.items.length > 0;
             const equipStr = hasMulti
@@ -526,42 +380,100 @@ export default function AdminDashboard() {
 
             return [
                 index + 1,
-                formatForExcel(r.id),
-                `"${String(r.borrowerName || '').replace(/"/g, '""')}"`,
-                `"${r.borrowerType === 'staff' ? 'อาจารย์/บุคลากร' : 'นิสิต'}"`,
-                formatForExcel(identifier),
-                `"${borrowerEmail}"`,
-                formatForExcel(r.phone || '-'),
-                `"${String(r.affiliation || '-').replace(/"/g, '""')}"`,
-                `"${equipStr.replace(/"/g, '""')}"`,
-                totalQty,
-                `"${String(r.location || '-').replace(/"/g, '""')}"`,
-                `"${formatDate(r.borrowDate, true)}"`,
-                `"${formatDate(r.returnDate, true)}"`,
-                `"${String(r.purpose || '-').replace(/"/g, '""')}"`,
-                `"${statusLabels[r.status] || r.status}"`,
-                `"${String(r.rejectReason || '-').replace(/"/g, '""')}"`,
-                `"${formatDate(r.requestDate, true)}"`,
-                `"${formatDate(r.approvedDate, true)}"`,
-                `"${formatDate(r.returnedDate, true)}"`,
-                formatForExcel(r.returnedReceiverName || '-'),
-                `"${String(r.returnNotes || '-').replace(/"/g, '""')}"`
+                String(r.id || ''),
+                r.borrowerName || '-',
+                r.borrowerType === 'staff' ? 'อาจารย์/บุคลากร' : 'นิสิต',
+                String(identifier || '-'),
+                borrowerEmail,
+                String(r.phone || '-'),
+                r.affiliation || '-',
+                equipStr,
+                Number(totalQty) || 1,
+                r.location || '-',
+                formatDate(r.borrowDate, true),
+                formatDate(r.returnDate, true),
+                r.purpose || '-',
+                statusLabels[r.status] || r.status,
+                r.rejectReason || '-',
+                formatDate(r.requestDate, true),
+                formatDate(r.approvedDate, true),
+                formatDate(r.returnedDate, true),
+                r.returnedReceiverName || '-',
+                r.returnNotes || '-'
             ];
         });
 
-        // ใส่ sep=, บรรทัดแรกสุด เพื่อบังคับให้ Excel แยกคอลัมน์ด้วยคอมม่าอัตโนมัติ ไม่ไปกองรวมในคอลัมน์ A
-        const csvContent = '\uFEFFsep=,\r\n' + [headers.map(h => `"${h}"`).join(','), ...rows.map(r => r.join(','))].join('\r\n');
+        return { headers, rows };
+    };
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `SMO_BorrowReport_${new Date().toISOString().split('T')[0]}.csv`;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 200);
-        toast.success('ดาวน์โหลดรายงาน CSV สำเร็จ!');
+    // Export Microsoft Excel (.xlsx) แท้ 100% เปิดใช้งานได้ทุกอุปกรณ์ ไม่มีแจ้งเตือนไฟล์เสียหาย
+    const exportToExcel = () => {
+        const dataToExport = filteredRequests;
+        if (dataToExport.length === 0) {
+            toast.warning('ไม่มีข้อมูลสำหรับ Export');
+            return;
+        }
+
+        try {
+            const { headers, rows } = generateExportData(dataToExport);
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+            // กำหนดความกว้างคอลัมน์ให้อ่านง่ายพอดีข้อมูล (Column widths)
+            ws['!cols'] = [
+                { wch: 8 },  // ลำดับ
+                { wch: 24 }, // รหัสคำขอ
+                { wch: 24 }, // ชื่อผู้ยืม
+                { wch: 16 }, // ประเภทผู้ยืม
+                { wch: 20 }, // รหัสนิสิต / บุคลากร
+                { wch: 28 }, // อีเมล
+                { wch: 16 }, // เบอร์โทร
+                { wch: 26 }, // สังกัด/คณะ
+                { wch: 36 }, // รายการครุภัณฑ์
+                { wch: 16 }, // จำนวนรวม (ชิ้น)
+                { wch: 22 }, // สถานที่ใช้งาน
+                { wch: 20 }, // วันที่ยืม
+                { wch: 20 }, // กำหนดคืน
+                { wch: 26 }, // วัตถุประสงค์
+                { wch: 16 }, // สถานะ
+                { wch: 24 }, // เหตุผลที่ปฏิเสธ
+                { wch: 20 }, // วันที่ยื่นคำขอ
+                { wch: 20 }, // วันที่อนุมัติ
+                { wch: 20 }, // วันที่คืนจริง
+                { wch: 22 }, // ผู้รับคืน
+                { wch: 24 }  // หมายเหตุการรับคืน
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, 'ประวัติการยืมครุภัณฑ์');
+            const filename = `SMO_BorrowReport_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            toast.success('ดาวน์โหลดไฟล์ Excel (.xlsx) สำเร็จ! เปิดใช้งานได้สมบูรณ์ 100%');
+        } catch (error) {
+            console.error('Export Excel failed:', error);
+            toast.error('เกิดข้อผิดพลาดในการสร้างไฟล์ Excel: ' + (error?.message || ''));
+        }
+    };
+
+    // Export CSV มาตรฐานพร้อม UTF-8 BOM สำหรับเปิดใน Excel ได้ภาษาไทยไม่เพี้ยน
+    const exportToCSV = () => {
+        const dataToExport = filteredRequests;
+        if (dataToExport.length === 0) {
+            toast.warning('ไม่มีข้อมูลสำหรับ Export');
+            return;
+        }
+
+        try {
+            const { headers, rows } = generateExportData(dataToExport);
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            XLSX.utils.book_append_sheet(wb, ws, 'BorrowReport');
+            const filename = `SMO_BorrowReport_${new Date().toISOString().split('T')[0]}.csv`;
+            XLSX.writeFile(wb, filename, { bookType: 'csv' });
+            toast.success('ดาวน์โหลดรายงาน CSV สำเร็จ!');
+        } catch (error) {
+            console.error('Export CSV failed:', error);
+            toast.error('เกิดข้อผิดพลาดในการสร้างไฟล์ CSV: ' + (error?.message || ''));
+        }
     };
 
     // Filter Equipments
@@ -611,15 +523,15 @@ export default function AdminDashboard() {
                         <button
                             className="btn btn-success admin-action-btn"
                             onClick={exportToExcel}
-                            title="ดาวน์โหลดไฟล์สำหรับเปิดและแก้ไขใน Microsoft Excel (.xls) สไตล์ตารางทางการ"
+                            title="ดาวน์โหลดไฟล์ Microsoft Excel (.xlsx) สมบูรณ์ เปิดใช้งานได้ 100% ทุกโปรแกรม"
                             style={{ background: '#107c41', borderColor: '#107c41', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         >
-                            📊 Export Excel (.xls)
+                            📊 Export Excel (.xlsx)
                         </button>
                         <button
                             className="btn btn-secondary admin-action-btn"
                             onClick={exportToCSV}
-                            title="ดาวน์โหลดไฟล์ CSV (รองรับภาษาไทย และไม่ตัดเลข 0 นำหน้า)"
+                            title="ดาวน์โหลดไฟล์ CSV (UTF-8 BOM รองรับภาษาไทย เปิดใน Excel ได้ทันที)"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         >
                             📄 Export CSV
