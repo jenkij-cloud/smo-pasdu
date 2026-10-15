@@ -213,3 +213,32 @@ export function getDueSoonText(request) {
     return `เหลืออีก ${hours} ชม. ${remMinutes} นาที`;
 }
 
+/**
+ * ปิดบังเบอร์โทรศัพท์เพื่อความเป็นส่วนตัวตามมาตรฐาน PDPA (เช่น 081-***-5678)
+ */
+export function maskPhone(phone) {
+    if (!phone) return '-';
+    const cleaned = String(phone).replace(/\D/g, '');
+    if (cleaned.length >= 10) {
+        return `${cleaned.slice(0, 3)}-***-${cleaned.slice(-4)}`;
+    } else if (cleaned.length >= 9) {
+        return `${cleaned.slice(0, 2)}-***-${cleaned.slice(-4)}`;
+    }
+    return phone.length > 5 ? `${phone.slice(0, 3)}***${phone.slice(-2)}` : '***';
+}
+
+/**
+ * ปิดบังอีเมลเพื่อความเป็นส่วนตัวตามมาตรฐาน PDPA (เช่น 672021****@tsu.ac.th)
+ */
+export function maskEmail(email) {
+    if (!email) return '-';
+    const parts = String(email).split('@');
+    if (parts.length !== 2) return email;
+    const [local, domain] = parts;
+    if (local.length <= 4) {
+        return `${local.slice(0, 1)}***@${domain}`;
+    }
+    const visibleChars = Math.min(local.length - 4, 6);
+    return `${local.slice(0, visibleChars)}****@${domain}`;
+}
+

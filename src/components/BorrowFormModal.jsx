@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Timestamp, serverTimestamp } from 'firebase/firestore';
 import { getStudentEmail } from '../utils/notificationService';
 import { getBorrowDurationText } from '../utils/dateUtils';
+import { useToast } from '../context/ToastContext';
 import FacultySelect, { FACULTIES } from './FacultySelect';
 
 export default function BorrowFormModal({
@@ -11,6 +12,8 @@ export default function BorrowFormModal({
     onClose,
     onSubmit
 }) {
+    const toast = useToast();
+    const [hpWebsite, setHpWebsite] = useState('');
     // วันนี้ในรูปแบบ YYYY-MM-DD
     const today = new Date().toISOString().split('T')[0];
 
@@ -379,10 +382,28 @@ export default function BorrowFormModal({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // 1. ตรวจสอบ Anti-Bot Honeypot: หากบอทแอบกรอกฟิลด์ที่มองไม่เห็น ให้ระงับทันที
+        if (hpWebsite) {
+            console.warn('[Security] Bot submission intercepted via honeypot');
+            onClose();
+            return;
+        }
+
+        // 2. ป้องกันการส่งสแปมซ้ำซ้อน (Rate Limit Cooldown: 10 วินาที)
+        const lastSubmit = localStorage.getItem('smo_last_borrow_submit_time');
+        const now = Date.now();
+        if (lastSubmit && now - parseInt(lastSubmit, 10) < 10000) {
+            if (toast) toast.warning('กรุณารอสักครู่ (10 วินาที) ก่อนส่งคำขอถัดไป เพื่อป้องกันข้อมูลซ้ำซ้อน');
+            return;
+        }
+
         if (!validate()) return;
 
         setSubmitting(true);
         try {
+            const cleanStr = (s) => String(s || '').replace(/[<>]/g, '').trim();
+
             const borrowDateTime = new Date(`${formData.borrowDate}T${formData.borrowTime}:00`);
             const returnDateTime = new Date(`${formData.returnDate}T${formData.returnTime}:00`);
 
@@ -400,6 +421,10 @@ export default function BorrowFormModal({
 
             await onSubmit({
                 ...formData,
+                borrowerName: cleanStr(formData.borrowerName),
+                phone: cleanStr(formData.phone),
+                location: cleanStr(formData.location),
+                purpose: cleanStr(formData.purpose),
                 items: itemsPayload,
                 totalItems: selectedItems.length,
                 totalQuantity: totalQuantity,
@@ -410,15 +435,15 @@ export default function BorrowFormModal({
                 equipmentSerial: primaryItem.equipmentSerial || '',
                 quantity: totalQuantity,
                 borrowerType: formData.borrowerType,
-                studentId: formData.borrowerType === 'student' ? formData.studentId.trim() : '-',
+                studentId: formData.borrowerType === 'student' ? cleanStr(formData.studentId) : '-',
                 staffId: '',
-                position: formData.borrowerType === 'staff' ? formData.position.trim() : '',
+                position: formData.borrowerType === 'staff' ? cleanStr(formData.position) : '',
                 studentEmail: contactEmail,
                 borrowerEmail: contactEmail,
                 contactEmail: contactEmail,
                 affiliation: formData.borrowerType === 'student'
-                    ? (formData.affiliation.trim() || 'คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล')
-                    : (formData.affiliation ? formData.affiliation.trim() : '-'),
+                    ? (cleanStr(formData.affiliation) || 'คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล')
+                    : (formData.affiliation ? cleanStr(formData.affiliation) : '-'),
                 borrowDate: Timestamp.fromDate(borrowDateTime),
                 returnDate: Timestamp.fromDate(returnDateTime),
                 borrowTime: formData.borrowTime,
@@ -430,6 +455,7 @@ export default function BorrowFormModal({
                 rejectedDate: null,
                 rejectReason: null
             });
+            localStorage.setItem('smo_last_borrow_submit_time', String(Date.now()));
             onClose();
         } catch (error) {
             console.error('Error submitting borrow request:', error);
@@ -446,6 +472,17 @@ export default function BorrowFormModal({
                     <button className="modal-close" onClick={onClose} aria-label="ปิด">×</button>
                 </div>
                 <form onSubmit={handleSubmit}>
+                    {/* Anti-Bot Honeypot (ซ่อนจากผู้ใช้งานจริง หากบอทแอบกรอกระบบจะดักจับทันที) */}
+                    <div style={{ display: 'none', position: 'absolute', left: '-9999px', opacity: 0 }} aria-hidden="true">
+                        <input
+                            type="text"
+                            name="hp_website_confirm"
+                            tabIndex={-1}
+                            autoComplete="off"
+                            value={hpWebsite}
+                            onChange={e => setHpWebsite(e.target.value)}
+                        />
+                    </div>
                     <div className="modal-body">
                         {/* Section: รายการครุภัณฑ์ที่ยืม (รองรับครั้งละหลายชิ้น) */}
                         <div className="borrow-items-container">

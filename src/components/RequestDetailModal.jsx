@@ -1,5 +1,5 @@
 import StatusBadge from './StatusBadge';
-import { formatDate, formatDateTime, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText, isDueSoon, getDueSoonText } from '../utils/dateUtils';
+import { formatDate, formatDateTime, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText, isDueSoon, getDueSoonText, maskPhone, maskEmail } from '../utils/dateUtils';
 import { generateBorrowSlipText, getStudentEmail, createMailtoUrl } from '../utils/notificationService';
 import { useToast } from '../context/ToastContext';
 
@@ -184,9 +184,15 @@ export default function RequestDetailModal({
                                     <div className="detail-row">
                                         <span className="detail-label">อีเมลติดต่อ:</span>
                                         <span>
-                                            <a href={`mailto:${studentEmail}`} className="link-student-email">
-                                                📧 {studentEmail}
-                                            </a>
+                                            {isAdmin ? (
+                                                <a href={`mailto:${studentEmail}`} className="link-student-email">
+                                                    📧 {studentEmail}
+                                                </a>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                    🔒 {maskEmail(studentEmail)}
+                                                </span>
+                                            )}
                                         </span>
                                     </div>
                                 </>
@@ -199,9 +205,15 @@ export default function RequestDetailModal({
                                     <div className="detail-row">
                                         <span className="detail-label">อีเมลมหาวิทยาลัย:</span>
                                         <span>
-                                            <a href={`mailto:${studentEmail}`} className="link-student-email">
-                                                📧 {studentEmail}
-                                            </a>
+                                            {isAdmin ? (
+                                                <a href={`mailto:${studentEmail}`} className="link-student-email">
+                                                    📧 {studentEmail}
+                                                </a>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                    🔒 {maskEmail(studentEmail)}
+                                                </span>
+                                            )}
                                         </span>
                                     </div>
                                     <div className="detail-row">
@@ -212,7 +224,13 @@ export default function RequestDetailModal({
                             )}
                             <div className="detail-row">
                                 <span className="detail-label">เบอร์โทรศัพท์:</span>
-                                <span><a href={`tel:${request.phone}`} style={{ color: 'var(--primary)' }}>{request.phone}</a></span>
+                                <span>
+                                    {isAdmin ? (
+                                        <a href={`tel:${request.phone}`} style={{ color: 'var(--primary)' }}>{request.phone}</a>
+                                    ) : (
+                                        <span style={{ color: 'var(--text-secondary)' }}>🔒 {maskPhone(request.phone)}</span>
+                                    )}
+                                </span>
                             </div>
                         </div>
 
@@ -310,20 +328,22 @@ export default function RequestDetailModal({
                 </div>
 
                 <div className="modal-footer modal-footer-detail">
-                    <div className="modal-footer-secondary-actions">
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopySlip}>
-                            📋 คัดลอกข้อมูล
-                        </button>
-                        <a
-                            href={mailtoUrl}
-                            className="btn btn-warning btn-sm"
-                            title={`ส่งอีเมลหา ${studentEmail}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            ✉️ ส่งอีเมลหาผู้ยืม
-                        </a>
-                    </div>
+                    {isAdmin && (
+                        <div className="modal-footer-secondary-actions">
+                            <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopySlip}>
+                                📋 คัดลอกข้อมูล
+                            </button>
+                            <a
+                                href={mailtoUrl}
+                                className="btn btn-warning btn-sm"
+                                title={`ส่งอีเมลหา ${studentEmail}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                ✉️ ส่งอีเมลหาผู้ยืม
+                            </a>
+                        </div>
+                    )}
                     <div className="modal-footer-primary-actions">
                         {isAdmin && request.status === 'pending' && (
                             <>

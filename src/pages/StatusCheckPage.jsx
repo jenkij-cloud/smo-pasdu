@@ -4,7 +4,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import Header from '../components/Header';
 import StatusBadge from '../components/StatusBadge';
 import RequestDetailModal from '../components/RequestDetailModal';
-import { formatDate, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText, isDueSoon, getDueSoonText } from '../utils/dateUtils';
+import { formatDate, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText, isDueSoon, getDueSoonText, maskEmail } from '../utils/dateUtils';
 import { getStudentEmail } from '../utils/notificationService';
 import { useToast } from '../context/ToastContext';
 
@@ -188,7 +188,7 @@ export default function StatusCheckPage() {
                                             )}
                                             <div className="status-card-row">
                                                 <span className="status-card-label">📧 เมลผู้ยืม:</span>
-                                                <span style={{ color: 'var(--primary)' }}>{studentEmail}</span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>🔒 {maskEmail(studentEmail)}</span>
                                             </div>
                                             <div className="status-card-row">
                                                 <span className="status-card-label">📍 สถานที่ใช้งาน:</span>

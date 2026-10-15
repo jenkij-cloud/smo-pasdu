@@ -2,20 +2,61 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // คลังครุภัณฑ์: ทุกคนดูได้ แต่เฉพาะ Admin ที่ล็อกอินแล้วเท่านั้นที่แก้ไข/เพิ่ม/ลบได้
+    // ตรวจสอบสิทธิ์ผู้ดูแลระบบ (Admin)
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    // ตรวจสอบความถูกต้องของคำขอยืมใหม่ ป้องกันการปลอมแปลงสถานะและข้อมูล
+    function isValidNewBorrowRequest() {
+      let data = request.resource.data;
+      
+      return 
+        // 1. สถานะคำขอใหม่ต้องเป็น 'pending' เท่านั้น (ห้ามปลอมแปลงเป็น approved หรือ returned มาล่วงหน้า)
+        data.status == 'pending' &&
+        
+        // 2. ชื่อผู้ยืมต้องเป็นข้อความยาว 2 - 150 ตัวอักษร
+        data.borrowerName is string &&
+        data.borrowerName.size() >= 2 &&
+        data.borrowerName.size() <= 150 &&
+        
+        // 3. เบอร์โทรศัพท์ต้องเป็นข้อความความยาว 9 - 20 ตัวอักษร
+        data.phone is string &&
+        data.phone.size() >= 9 &&
+        data.phone.size() <= 20 &&
+        
+        // 4. ต้องมีรายการครุภัณฑ์
+        (
+          ('items' in data && data.items is list && data.items.size() > 0) ||
+          ('equipmentId' in data && data.equipmentId is string && data.equipmentId.size() > 0)
+        ) &&
+
+        // 5. วันที่ยืมและกำหนดคืนต้องมีระบุ
+        data.borrowDate != null &&
+        data.returnDate != null &&
+
+        // 6. ห้ามมีการแนบฟิลด์ที่สงวนไว้สำหรับ Admin ตอนสร้างคำขอใหม่
+        (!('returnedReceiverName' in data) || data.returnedReceiverName == null) &&
+        (!('approvedDate' in data) || data.approvedDate == null) &&
+        (!('returnedDate' in data) || data.returnedDate == null) &&
+        (!('rejectedDate' in data) || data.rejectedDate == null) &&
+        (!('rejectReason' in data) || data.rejectReason == null);
+    }
+
+    // คลังครุภัณฑ์: ทุกคนดูได้ แต่เฉพาะ Admin เท่านั้นที่แก้ไข/เพิ่ม/ลบได้
     match /equipments/{equipmentId} {
       allow read: if true;
-      allow create, update, delete: if request.auth != null;
+      allow create, update, delete: if isAdmin();
     }
     
     // รายการคำขอยืม:
-    // - ทุกคนอ่านได้ (สำหรับค้นหาตรวจสอบสถานะของตนเอง)
-    // - ทุกคนยื่นคำขอใหม่ได้ (create)
-    // - แก้ไขหรือลบคำขอได้เฉพาะ Admin ที่ล็อกอินแล้วเท่านั้น
+    // - อ่านได้ (สำหรับค้นหาและตรวจสอบสถานะการยืมของตนเอง)
+    // - ยื่นคำขอใหม่ได้ แต่ต้องผ่านการตรวจสอบโครงสร้างข้อมูลอย่างเข้มงวด (Data Schema Validation)
+    // - แก้ไข/อนุมัติ/รับคืน/ลบ ได้เฉพาะ Admin ที่ล็อกอินแล้วเท่านั้น
     match /borrowRequests/{requestId} {
       allow read: if true;
-      allow create: if true;
-      allow update, delete: if request.auth != null;
+      allow create: if isValidNewBorrowRequest();
+      allow update, delete: if isAdmin();
     }
   }
 }
