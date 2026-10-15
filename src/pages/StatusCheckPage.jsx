@@ -236,6 +236,30 @@ export default function StatusCheckPage() {
                                                     🔥 เกินกำหนดคืนแล้ว {getOverdueText(request) || `${overdueDays} วัน`}! กรุณานำครุภัณฑ์มาส่งคืนสโมสรนิสิตโดยเร็ว
                                                 </div>
                                             )}
+
+                                            {request.status === 'returned' && (
+                                                <div className="status-returned-box" style={{
+                                                    background: '#eff6ff',
+                                                    border: '1px solid #bfdbfe',
+                                                    color: '#1e40af',
+                                                    padding: '0.65rem 0.9rem',
+                                                    borderRadius: 'var(--radius)',
+                                                    fontSize: '0.85rem',
+                                                    marginTop: '0.5rem'
+                                                }}>
+                                                    <div>✅ <strong>ส่งคืนครุภัณฑ์เรียบร้อยแล้ว:</strong> {formatDate(request.returnedDate, true)}</div>
+                                                    {request.returnedReceiverName && (
+                                                        <div style={{ marginTop: '3px', fontWeight: 600 }}>
+                                                            👤 ผู้รับคืน: {request.returnedReceiverName}
+                                                            {request.returnNotes && (
+                                                                <span style={{ color: '#475569', fontWeight: 400, marginLeft: '6px' }}>
+                                                                    ({request.returnNotes})
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
 

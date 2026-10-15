@@ -17,6 +17,7 @@ import Header from '../components/Header';
 import StatusBadge from '../components/StatusBadge';
 import ConfirmModal from '../components/ConfirmModal';
 import RejectReasonModal from '../components/RejectReasonModal';
+import ReturnModal from '../components/ReturnModal';
 import RequestDetailModal from '../components/RequestDetailModal';
 import EquipmentFormModal from '../components/EquipmentFormModal';
 import EmailWebhookModal from '../components/EmailWebhookModal';
@@ -48,6 +49,7 @@ export default function AdminDashboard() {
     // Modals
     const [detailRequest, setDetailRequest] = useState(null);
     const [rejectingRequest, setRejectingRequest] = useState(null);
+    const [returningRequest, setReturningRequest] = useState(null);
     const [confirmAction, setConfirmAction] = useState(null);
     const [showEquipmentForm, setShowEquipmentForm] = useState(false);
     const [editingEquipment, setEditingEquipment] = useState(null);
@@ -281,6 +283,16 @@ export default function AdminDashboard() {
         await handleStatusChange(rejectingRequest.id, 'rejected', { rejectReason: reason });
     };
 
+    // Return confirmation handler (บันทึกชื่อผู้รับคืนและสภาพพัสดุ)
+    const handleConfirmReturn = async ({ returnedReceiverName, returnNotes }) => {
+        if (!returningRequest) return;
+        await handleStatusChange(returningRequest.id, 'returned', {
+            returnedReceiverName,
+            returnNotes
+        });
+        setReturningRequest(null);
+    };
+
 
     // Equipment Submission
     const handleEquipmentSubmit = async (data, equipmentId) => {
@@ -349,7 +361,9 @@ export default function AdminDashboard() {
             'เหตุผลที่ปฏิเสธ',
             'วันที่ยื่นคำขอ',
             'วันที่อนุมัติ',
-            'วันที่คืนจริง'
+            'วันที่คืนจริง',
+            'ผู้รับคืน',
+            'หมายเหตุการรับคืน'
         ];
 
         const statusLabels = {
@@ -377,7 +391,9 @@ export default function AdminDashboard() {
             r.rejectReason || '-',
             formatDate(r.requestDate, true),
             formatDate(r.approvedDate, true),
-            formatDate(r.returnedDate, true)
+            formatDate(r.returnedDate, true),
+            r.returnedReceiverName || '-',
+            r.returnNotes || '-'
         ]);
 
         const csvContent = '\uFEFF' + [headers, ...rows]
@@ -741,6 +757,11 @@ export default function AdminDashboard() {
                                                                 💬 {request.rejectReason}
                                                             </div>
                                                         )}
+                                                        {request.status === 'returned' && request.returnedReceiverName && (
+                                                            <div className="table-return-snippet" title={`ผู้รับคืน: ${request.returnedReceiverName}${request.returnNotes ? ` (${request.returnNotes})` : ''}`}>
+                                                                📥 รับโดย: {request.returnedReceiverName}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td>
                                                         <div className="action-buttons" style={{ justifyContent: 'center' }}>
@@ -793,7 +814,7 @@ export default function AdminDashboard() {
                                                             {request.status === 'approved' && (
                                                                 <button
                                                                     className="btn btn-primary btn-sm"
-                                                                    onClick={() => handleStatusChange(request.id, 'returned')}
+                                                                    onClick={() => setReturningRequest(request)}
                                                                 >
                                                                     📥 รับคืน
                                                                 </button>
@@ -885,6 +906,12 @@ export default function AdminDashboard() {
                                                             💬 {request.rejectReason}
                                                         </div>
                                                     )}
+                                                    {request.status === 'returned' && request.returnedReceiverName && (
+                                                        <div className="mobile-req-return-receiver">
+                                                            📥 รับคืนโดย: <strong>{request.returnedReceiverName}</strong>
+                                                            {request.returnNotes && <span style={{ color: '#64748b', fontSize: '0.78rem' }}> ({request.returnNotes})</span>}
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="mobile-req-card-actions">
@@ -935,7 +962,7 @@ export default function AdminDashboard() {
                                                     {request.status === 'approved' && (
                                                         <button
                                                             className="btn btn-primary mobile-action-btn"
-                                                            onClick={() => handleStatusChange(request.id, 'returned')}
+                                                            onClick={() => setReturningRequest(request)}
                                                         >
                                                             📥 รับคืน
                                                         </button>
@@ -1164,8 +1191,17 @@ export default function AdminDashboard() {
                     onClose={() => setDetailRequest(null)}
                     onApprove={(r) => handleStatusChange(r.id, 'approved')}
                     onReject={(r) => setRejectingRequest(r)}
-                    onReturn={(r) => handleStatusChange(r.id, 'returned')}
+                    onReturn={(r) => { setDetailRequest(null); setReturningRequest(r); }}
                     onSendDueReminder={handleSendDueReminder}
+                />
+            )}
+
+            {returningRequest && (
+                <ReturnModal
+                    isOpen={Boolean(returningRequest)}
+                    request={returningRequest}
+                    onConfirm={handleConfirmReturn}
+                    onCancel={() => setReturningRequest(null)}
                 />
             )}
 

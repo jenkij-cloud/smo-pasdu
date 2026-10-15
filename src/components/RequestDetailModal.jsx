@@ -292,6 +292,16 @@ export default function RequestDetailModal({
                                     <span className="timeline-dot timeline-dot-info"></span>
                                     <div>
                                         <strong>รับคืนครุภัณฑ์:</strong> {formatDate(request.returnedDate, true)}
+                                        {request.returnedReceiverName && (
+                                            <div style={{ fontSize: '0.875rem', color: '#1d4ed8', marginTop: '4px', fontWeight: 600 }}>
+                                                👤 ผู้รับคืน: {request.returnedReceiverName}
+                                                {request.returnNotes && (
+                                                    <span style={{ color: '#475569', fontWeight: 400, marginLeft: '6px' }}>
+                                                        ({request.returnNotes})
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </li>
                             )}

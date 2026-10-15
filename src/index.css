@@ -2094,6 +2094,28 @@ body {
   margin-top: 2px;
 }
 
+.table-return-snippet {
+  font-size: 0.75rem;
+  color: var(--status-returned);
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.mobile-req-return-receiver {
+  font-size: 0.8rem;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  margin-top: 0.35rem;
+  display: block;
+}
+
 .rejected-card {
   border-color: #fca5a5 !important;
 }

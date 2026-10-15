@@ -166,7 +166,7 @@ ${equipDetails}
 
 📋 รายการที่ส่งคืน:
 ${equipDetails}
-
+${request.returnedReceiverName ? `👤 ผู้รับคืน: ${request.returnedReceiverName}\n` : ''}${request.returnNotes ? `📝 หมายเหตุสภาพพัสดุ: ${request.returnNotes}\n` : ''}
 การยืมครุภัณฑ์ในรายการนี้เสร็จสมบูรณ์เรียบร้อย
 
 ขอขอบคุณที่ให้ความร่วมมือในการส่งคืนครุภัณฑ์ตามกำหนด
@@ -242,6 +242,7 @@ ${equipDetails}
 - วัตถุประสงค์: ${request.purpose || '-'}
 - สถานะ: ${request.status}
 - วันที่ยืม: ${request.borrowDate ? formatDate(request.borrowDate, true) : '-'}
-- กำหนดคืน: ${request.returnDate ? formatDate(request.returnDate, true) : '-'}`;
+- กำหนดคืน: ${request.returnDate ? formatDate(request.returnDate, true) : '-'}
+${request.returnedDate ? `- วันที่ส่งคืนจริง: ${formatDate(request.returnedDate, true)}\n` : ''}${request.returnedReceiverName ? `- ผู้รับคืน: ${request.returnedReceiverName}\n` : ''}${request.returnNotes ? `- หมายเหตุการรับคืน: ${request.returnNotes}\n` : ''}`;
 }
 
