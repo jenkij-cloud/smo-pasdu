@@ -94,7 +94,7 @@ export default function EmailWebhookModal({ isOpen, onClose }) {
                     <div className="alert alert-info" style={{ marginBottom: '1.25rem' }}>
                         <div>
                             <strong>📧 อีเมลผู้ส่งของสโมสร:</strong> <code>{OFFICIAL_SENDER_EMAIL}</code><br />
-                            <small>เมื่อตั้งค่าเสร็จ ระบบจะส่งอีเมลแจ้งเตือนออกจากบัญชีนี้ไปยัง <code>รหัสนิสิต@tsu.ac.th</code> อัตโนมัติทันทีที่อนุมัติ/ปฏิเสธ/คืน</small>
+                            <small>เมื่อตั้งค่าเสร็จ ระบบจะส่งอีเมลแจ้งเตือนออกจากบัญชีนี้ไปยัง <code>รหัสนิสิต@tsu.ac.th</code> อัตโนมัติทันทีที่อนุมัติ, ปฏิเสธ, เตือนใกล้ถึงกำหนดคืน (ก่อน 1 ชม.), เกินกำหนดคืน และเมื่อคืนสำเร็จ</small>
                         </div>
                     </div>
 

@@ -2,8 +2,15 @@ import { useState, useMemo } from 'react';
 import { Timestamp, serverTimestamp } from 'firebase/firestore';
 import { getStudentEmail } from '../utils/notificationService';
 import { getBorrowDurationText } from '../utils/dateUtils';
+import FacultySelect, { FACULTIES } from './FacultySelect';
 
-export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
+export default function BorrowFormModal({
+    equipment = null,
+    initialItems = null,
+    allEquipments = [],
+    onClose,
+    onSubmit
+}) {
     // วันนี้ในรูปแบบ YYYY-MM-DD
     const today = new Date().toISOString().split('T')[0];
 
@@ -22,19 +29,51 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
 
     const initialTimes = getInitialTimes();
 
+    // รายการครุภัณฑ์ที่เลือกไว้ (รองรับการยืมหลายชิ้น/หลายรายการพร้อมกัน)
+    const [selectedItems, setSelectedItems] = useState(() => {
+        if (initialItems && Array.isArray(initialItems) && initialItems.length > 0) {
+            return initialItems.map(item => ({
+                equipmentId: item.id || item.equipmentId,
+                equipmentName: item.name || item.equipmentName,
+                equipmentCategory: item.category || item.equipmentCategory || '',
+                equipmentSerial: item.serialNumber || item.equipmentSerial || '',
+                imageUrl: item.imageUrl || '',
+                availableStock: typeof item.availableStock === 'number' ? item.availableStock : (item.quantity || 1),
+                quantity: item.borrowQuantity || 1
+            }));
+        }
+        if (equipment) {
+            return [{
+                equipmentId: equipment.id,
+                equipmentName: equipment.name,
+                equipmentCategory: equipment.category || '',
+                equipmentSerial: equipment.serialNumber || '',
+                imageUrl: equipment.imageUrl || '',
+                availableStock: equipment.quantity,
+                quantity: 1
+            }];
+        }
+        return [];
+    });
+
+    const [showAddEquipment, setShowAddEquipment] = useState(false);
+    const [searchEquipToAdd, setSearchEquipToAdd] = useState('');
+
+    const [selectedFaculty, setSelectedFaculty] = useState('คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล');
+    const [customAffiliation, setCustomAffiliation] = useState('');
+
     const [formData, setFormData] = useState({
         borrowerType: 'student', // 'student' | 'staff'
         borrowerName: '',
         studentId: '',
         staffEmail: '',
         phone: '',
-        affiliation: '',
+        affiliation: 'คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล',
         position: '',
-        quantity: 1,
         location: '',
         borrowDate: today,
         borrowTime: initialTimes.borrowTime,
-        returnDate: today, // เริ่มต้นยืมวันนี้ คืนวันนี้
+        returnDate: today,
         returnTime: initialTimes.returnTime,
         purpose: ''
     });
@@ -47,16 +86,110 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
         ? studentEmail
         : formData.staffEmail.trim();
 
-    const handleQuantityChange = (delta) => {
-        setFormData(prev => {
-            const cur = parseInt(prev.quantity, 10) || 1;
-            const next = Math.max(1, Math.min(equipment.quantity, cur + delta));
-            return { ...prev, quantity: next };
+    // จัดการจำนวนของแต่ละชิ้น
+    const handleItemQuantityChange = (equipmentId, delta) => {
+        setSelectedItems(prev => prev.map(item => {
+            if (item.equipmentId !== equipmentId) return item;
+            const cur = parseInt(item.quantity, 10) || 1;
+            const next = Math.max(1, Math.min(item.availableStock, cur + delta));
+            return { ...item, quantity: next };
+        }));
+    };
+
+    const handleItemQuantityInput = (equipmentId, val) => {
+        setSelectedItems(prev => prev.map(item => {
+            if (item.equipmentId !== equipmentId) return item;
+            if (val === '') return { ...item, quantity: '' };
+            const num = parseInt(val, 10);
+            if (isNaN(num)) return item;
+            return { ...item, quantity: Math.max(1, Math.min(item.availableStock, num)) };
+        }));
+    };
+
+    // ลบครุภัณฑ์ออกจากรายการ
+    const handleRemoveItem = (equipmentId) => {
+        setSelectedItems(prev => prev.filter(item => item.equipmentId !== equipmentId));
+    };
+
+    // เพิ่มครุภัณฑ์ใหม่ลงในรายการ
+    const handleAddItem = (eq) => {
+        setSelectedItems(prev => {
+            if (prev.some(it => it.equipmentId === eq.id)) return prev;
+            return [
+                ...prev,
+                {
+                    equipmentId: eq.id,
+                    equipmentName: eq.name,
+                    equipmentCategory: eq.category || '',
+                    equipmentSerial: eq.serialNumber || '',
+                    imageUrl: eq.imageUrl || '',
+                    availableStock: eq.quantity,
+                    quantity: 1
+                }
+            ];
         });
+        setShowAddEquipment(false);
+        setSearchEquipToAdd('');
+    };
+
+    // รายการครุภัณฑ์ในระบบที่ยังไม่ได้เลือกและมีของในสต็อก
+    const availableToAdd = useMemo(() => {
+        const selectedIds = new Set(selectedItems.map(i => i.equipmentId));
+        return allEquipments
+            .filter(e => !selectedIds.has(e.id) && e.quantity > 0)
+            .filter(e => {
+                if (!searchEquipToAdd.trim()) return true;
+                const kw = searchEquipToAdd.toLowerCase();
+                return (
+                    e.name.toLowerCase().includes(kw) ||
+                    (e.category && e.category.toLowerCase().includes(kw)) ||
+                    (e.serialNumber && e.serialNumber.toLowerCase().includes(kw))
+                );
+            });
+    }, [allEquipments, selectedItems, searchEquipToAdd]);
+
+    // ผลรวมจำนวนชิ้นทั้งหมด
+    const totalQuantity = useMemo(() => {
+        return selectedItems.reduce((sum, item) => sum + (parseInt(item.quantity, 10) || 0), 0);
+    }, [selectedItems]);
+
+    // จัดการเลือกคณะจาก Dropdown หรือกรอกเองเมื่อเลือก อื่นๆ
+    const handleFacultySelect = (value) => {
+        setSelectedFaculty(value);
+        if (value === 'อื่นๆ (ระบุเอง)') {
+            setFormData(prev => ({ ...prev, affiliation: customAffiliation }));
+        } else {
+            setFormData(prev => ({ ...prev, affiliation: value }));
+        }
+        if (errors.affiliation) {
+            setErrors(prev => {
+                const copy = { ...prev };
+                delete copy.affiliation;
+                return copy;
+            });
+        }
+    };
+
+    const handleCustomAffiliationChange = (val) => {
+        setCustomAffiliation(val);
+        setFormData(prev => ({ ...prev, affiliation: val }));
+        if (errors.affiliation) {
+            setErrors(prev => {
+                const copy = { ...prev };
+                delete copy.affiliation;
+                return copy;
+            });
+        }
     };
 
     const handleTypeSwitch = (type) => {
-        setFormData(prev => ({ ...prev, borrowerType: type }));
+        setFormData(prev => ({
+            ...prev,
+            borrowerType: type,
+            affiliation: type === 'student'
+                ? (selectedFaculty === 'อื่นๆ (ระบุเอง)' ? customAffiliation : selectedFaculty)
+                : ''
+        }));
         setErrors(prev => {
             const copy = { ...prev };
             delete copy.studentId;
@@ -104,23 +237,20 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
     // ฟังก์ชันช่วยตั้งค่าปุ่มลัด (Quick Presets)
     const applyPreset = (presetKey) => {
         const baseDate = formData.borrowDate ? new Date(formData.borrowDate + 'T00:00:00') : new Date(today + 'T00:00:00');
-        
+
         if (presetKey === 'today_evening') {
-            // คืนเย็นวันนี้ 16:30 น.
             setFormData(prev => ({
                 ...prev,
                 returnDate: prev.borrowDate || today,
                 returnTime: '16:30'
             }));
         } else if (presetKey === 'today_night') {
-            // คืนค่ำวันนี้ 19:00 น.
             setFormData(prev => ({
                 ...prev,
                 returnDate: prev.borrowDate || today,
                 returnTime: '19:00'
             }));
         } else if (presetKey === 'tomorrow_morning') {
-            // คืนพรุ่งนี้เช้า 09:00 น.
             const nextDay = new Date(baseDate);
             nextDay.setDate(nextDay.getDate() + 1);
             setFormData(prev => ({
@@ -129,7 +259,6 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                 returnTime: '09:00'
             }));
         } else if (presetKey === 'tomorrow_evening') {
-            // คืนพรุ่งนี้เย็น 16:30 น.
             const nextDay = new Date(baseDate);
             nextDay.setDate(nextDay.getDate() + 1);
             setFormData(prev => ({
@@ -138,7 +267,6 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                 returnTime: '16:30'
             }));
         } else if (presetKey === 'days_3') {
-            // ยืม 3 วัน (16:30 น.)
             const future = new Date(baseDate);
             future.setDate(future.getDate() + 3);
             setFormData(prev => ({
@@ -147,7 +275,6 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                 returnTime: '16:30'
             }));
         } else if (presetKey === 'days_7') {
-            // ยืม 7 วัน (สูงสุด 1 สัปดาห์)
             const future = new Date(baseDate);
             future.setDate(future.getDate() + 7);
             setFormData(prev => ({
@@ -156,7 +283,6 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                 returnTime: '16:30'
             }));
         }
-        // ล้าง error ที่เกี่ยวข้องกับวันคืนถ้ามี
         if (errors.returnDate || errors.returnTime) {
             setErrors(prev => {
                 const copy = { ...prev };
@@ -169,25 +295,43 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
 
     const validate = () => {
         const newErrors = {};
+
+        // ตรวจสอบรายการครุภัณฑ์
+        if (selectedItems.length === 0) {
+            newErrors.items = 'กรุณาเลือกครุภัณฑ์ที่ต้องการยืมอย่างน้อย 1 รายการ';
+        } else {
+            for (const item of selectedItems) {
+                const qty = parseInt(item.quantity, 10);
+                if (!qty || qty < 1) {
+                    newErrors.items = `จำนวนของ "${item.equipmentName}" ต้องมากกว่า 0`;
+                    break;
+                }
+                if (qty > item.availableStock) {
+                    newErrors.items = `จำนวนของ "${item.equipmentName}" เกินคงเหลือในคลัง (${item.availableStock} ชิ้น)`;
+                    break;
+                }
+            }
+        }
+
         if (!formData.borrowerName.trim()) newErrors.borrowerName = 'กรุณากรอกชื่อ-สกุล';
         if (!formData.phone.trim()) newErrors.phone = 'กรุณากรอกเบอร์โทรศัพท์';
         if (!formData.location.trim()) newErrors.location = 'กรุณากรอกสถานที่ใช้งาน';
 
         if (formData.borrowerType === 'student') {
             if (!formData.studentId.trim()) newErrors.studentId = 'กรุณากรอกรหัสนิสิต';
+            if (!formData.affiliation.trim()) {
+                newErrors.affiliation = 'กรุณาเลือกหรือระบุคณะ';
+            }
         } else {
-            // บุคลากร / อาจารย์
             if (!formData.staffEmail.trim()) {
                 newErrors.staffEmail = 'กรุณากรอกอีเมลติดต่อ (TSU Mail หรือ Gmail)';
             } else if (!formData.staffEmail.includes('@') || !formData.staffEmail.includes('.')) {
                 newErrors.staffEmail = 'รูปแบบอีเมลไม่ถูกต้อง';
             }
-            if (!formData.affiliation.trim()) {
-                newErrors.affiliation = 'กรุณากรอกคณะ';
-            }
+            // สังกัด/หน่วยงาน ไม่บังคับสำหรับอาจารย์/บุคลากร/รร.สาธิต/วมว./นักเรียน (เว้นว่างได้)
         }
-        
-        // ตรวจสอบวันที่ยืม (ห้ามยืมย้อนหลัง)
+
+        // ตรวจสอบวันที่ยืม
         if (!formData.borrowDate) {
             newErrors.borrowDate = 'กรุณาเลือกวันที่ยืม';
         } else if (formData.borrowDate < today) {
@@ -198,7 +342,7 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
             newErrors.borrowTime = 'กรุณาระบุเวลาที่ยืม';
         }
 
-        // ตรวจสอบกำหนดคืน (ต้องไม่ก่อนวันยืม และไม่เกิน 7 วัน)
+        // ตรวจสอบกำหนดคืน
         if (!formData.returnDate) {
             newErrors.returnDate = 'กรุณาเลือกกำหนดคืน';
         } else if (formData.returnDate < formData.borrowDate) {
@@ -228,8 +372,6 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
         }
 
         if (!formData.purpose.trim()) newErrors.purpose = 'กรุณากรอกวัตถุประสงค์';
-        if (!formData.quantity || formData.quantity < 1) newErrors.quantity = 'จำนวนต้องมากกว่า 0';
-        if (formData.quantity > equipment.quantity) newErrors.quantity = `จำนวนเกินสต็อกคงเหลือ (${equipment.quantity} ชิ้น)`;
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -244,8 +386,29 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
             const borrowDateTime = new Date(`${formData.borrowDate}T${formData.borrowTime}:00`);
             const returnDateTime = new Date(`${formData.returnDate}T${formData.returnTime}:00`);
 
+            const primaryItem = selectedItems[0];
+            const equipmentNamesStr = selectedItems.map(i => `${i.equipmentName} (${i.quantity})`).join(', ');
+
+            const itemsPayload = selectedItems.map(item => ({
+                equipmentId: item.equipmentId,
+                equipmentName: item.equipmentName,
+                equipmentCategory: item.equipmentCategory || '',
+                equipmentSerial: item.equipmentSerial || '',
+                imageUrl: item.imageUrl || '',
+                quantity: parseInt(item.quantity, 10) || 1
+            }));
+
             await onSubmit({
                 ...formData,
+                items: itemsPayload,
+                totalItems: selectedItems.length,
+                totalQuantity: totalQuantity,
+                // ข้อมูลสำหรับความเข้ากันได้ย้อนหลัง (Backward Compatibility)
+                equipmentId: primaryItem.equipmentId,
+                equipmentName: equipmentNamesStr,
+                equipmentCategory: primaryItem.equipmentCategory || '',
+                equipmentSerial: primaryItem.equipmentSerial || '',
+                quantity: totalQuantity,
                 borrowerType: formData.borrowerType,
                 studentId: formData.borrowerType === 'student' ? formData.studentId.trim() : '-',
                 staffId: '',
@@ -253,12 +416,9 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                 studentEmail: contactEmail,
                 borrowerEmail: contactEmail,
                 contactEmail: contactEmail,
-                affiliation: formData.affiliation.trim(),
-                quantity: parseInt(formData.quantity, 10) || 1,
-                equipmentId: equipment.id,
-                equipmentName: equipment.name,
-                equipmentCategory: equipment.category || '',
-                equipmentSerial: equipment.serialNumber || '',
+                affiliation: formData.borrowerType === 'student'
+                    ? (formData.affiliation.trim() || 'คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล')
+                    : (formData.affiliation ? formData.affiliation.trim() : '-'),
                 borrowDate: Timestamp.fromDate(borrowDateTime),
                 returnDate: Timestamp.fromDate(returnDateTime),
                 borrowTime: formData.borrowTime,
@@ -280,40 +440,163 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <h3>📝 แบบฟอร์มขอยืมครุภัณฑ์</h3>
                     <button className="modal-close" onClick={onClose} aria-label="ปิด">×</button>
                 </div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
-                        {/* Equipment Preview */}
-                        <div className="borrow-equipment-preview">
-                            {equipment.imageUrl ? (
-                                <img
-                                    src={equipment.imageUrl}
-                                    alt={equipment.name}
-                                    className="preview-equip-img"
-                                />
-                            ) : (
-                                <div className="preview-equip-placeholder">📦</div>
-                            )}
-                            <div className="preview-equip-info">
-                                <h4>{equipment.name}</h4>
-                                <div className="preview-badges">
-                                    <span className="card-category">{equipment.category}</span>
-                                    {equipment.serialNumber && (
-                                        <span className="badge-serial">SN: {equipment.serialNumber}</span>
-                                    )}
-                                </div>
-                                <p className="preview-stock">
-                                    คงเหลือในคลัง: <strong>{equipment.quantity}</strong> ชิ้น
-                                </p>
+                        {/* Section: รายการครุภัณฑ์ที่ยืม (รองรับครั้งละหลายชิ้น) */}
+                        <div className="borrow-items-container">
+                            <div className="borrow-items-header">
+                                <label className="form-label" style={{ margin: 0, fontWeight: 700, fontSize: '1rem', color: 'var(--primary-dark)' }}>
+                                    📦 รายการครุภัณฑ์ที่ต้องการยืม ({selectedItems.length} รายการ, รวม {totalQuantity} ชิ้น)
+                                </label>
+                                {allEquipments.length > 0 && (
+                                    <button
+                                        type="button"
+                                        className="btn-add-item-trigger"
+                                        onClick={() => setShowAddEquipment(!showAddEquipment)}
+                                    >
+                                        {showAddEquipment ? '✕ ปิดตัวเลือก' : '➕ เพิ่มครุภัณฑ์ชิ้นอื่น'}
+                                    </button>
+                                )}
                             </div>
+
+                            {errors.items && (
+                                <div className="alert alert-error" style={{ margin: '0.5rem 0', padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}>
+                                    ⚠️ {errors.items}
+                                </div>
+                            )}
+
+                            {/* แสดงรายการครุภัณฑ์ที่เลือก */}
+                            {selectedItems.length === 0 ? (
+                                <div className="empty-items-notice">
+                                    <p>ยังไม่มีครุภัณฑ์ในรายการ กรุณากดปุ่ม <strong>"➕ เพิ่มครุภัณฑ์ชิ้นอื่น"</strong> ด้านบน</p>
+                                </div>
+                            ) : (
+                                <div className="borrow-items-list">
+                                    {selectedItems.map((item) => (
+                                        <div key={item.equipmentId} className="borrow-item-card">
+                                            <div className="borrow-item-preview">
+                                                {item.imageUrl ? (
+                                                    <img src={item.imageUrl} alt={item.equipmentName} className="borrow-item-img" />
+                                                ) : (
+                                                    <div className="borrow-item-placeholder">📦</div>
+                                                )}
+                                            </div>
+
+                                            <div className="borrow-item-info">
+                                                <h4 className="borrow-item-title">{item.equipmentName}</h4>
+                                                <div className="borrow-item-meta">
+                                                    <span className="card-category-sm">{item.equipmentCategory || 'ทั่วไป'}</span>
+                                                    {item.equipmentSerial && (
+                                                        <span className="badge-serial-sm">SN: {item.equipmentSerial}</span>
+                                                    )}
+                                                    <span className="borrow-item-stock">
+                                                        คงเหลือในคลัง: <strong>{item.availableStock}</strong> ชิ้น
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="borrow-item-controls">
+                                                <div className="quantity-stepper">
+                                                    <button
+                                                        type="button"
+                                                        className="btn-stepper btn-stepper-minus"
+                                                        disabled={Number(item.quantity) <= 1}
+                                                        onClick={() => handleItemQuantityChange(item.equipmentId, -1)}
+                                                        title="ลดจำนวน"
+                                                        aria-label="ลดจำนวน"
+                                                    >
+                                                        −
+                                                    </button>
+                                                    <input
+                                                        type="number"
+                                                        className="stepper-input"
+                                                        min="1"
+                                                        max={item.availableStock}
+                                                        value={item.quantity}
+                                                        onChange={(e) => handleItemQuantityInput(item.equipmentId, e.target.value)}
+                                                        onBlur={() => {
+                                                            if (!item.quantity || item.quantity < 1) {
+                                                                handleItemQuantityInput(item.equipmentId, 1);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="btn-stepper btn-stepper-plus"
+                                                        disabled={Number(item.quantity) >= item.availableStock}
+                                                        onClick={() => handleItemQuantityChange(item.equipmentId, 1)}
+                                                        title="เพิ่มจำนวน"
+                                                        aria-label="เพิ่มจำนวน"
+                                                    >
+                                                        +
+                                                    </button>
+                                                </div>
+
+                                                {selectedItems.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn-remove-item"
+                                                        onClick={() => handleRemoveItem(item.equipmentId)}
+                                                        title="ลบรายการนี้"
+                                                        aria-label="ลบรายการนี้"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* แผงค้นหาและเลือกครุภัณฑ์เพิ่ม */}
+                            {showAddEquipment && (
+                                <div className="add-equipment-dropdown-panel">
+                                    <div className="add-equip-search-box">
+                                        <input
+                                            type="text"
+                                            className="form-input form-input-sm"
+                                            placeholder="🔍 พิมพ์ชื่อหรือหมวดหมู่เพื่อค้นหาครุภัณฑ์ที่ต้องการเพิ่ม..."
+                                            value={searchEquipToAdd}
+                                            onChange={e => setSearchEquipToAdd(e.target.value)}
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <div className="add-equip-results-list">
+                                        {availableToAdd.length === 0 ? (
+                                            <div className="add-equip-empty">
+                                                {searchEquipToAdd ? 'ไม่พบครุภัณฑ์ที่ตรงกับการค้นหา หรือถูกเลือกไปแล้ว' : 'ไม่มีครุภัณฑ์อื่นที่พร้อมให้ยืมในขณะนี้'}
+                                            </div>
+                                        ) : (
+                                            availableToAdd.map(eq => (
+                                                <div key={eq.id} className="add-equip-item" onClick={() => handleAddItem(eq)}>
+                                                    <div className="add-equip-item-left">
+                                                        <span className="add-equip-icon">📦</span>
+                                                        <div>
+                                                            <div className="add-equip-name">{eq.name}</div>
+                                                            <div className="add-equip-sub">
+                                                                <span>{eq.category || 'ทั่วไป'}</span> • คงเหลือ: <strong>{eq.quantity}</strong> ชิ้น
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" className="btn btn-sm btn-primary">
+                                                        + เพิ่ม
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Borrower Type Tabs */}
-                        <div className="borrower-type-container">
+                        <div className="borrower-type-container" style={{ marginTop: '1.25rem' }}>
                             <label className="form-label" style={{ marginBottom: '0.4rem', fontWeight: 600 }}>
                                 ประเภทผู้ขอยืม <span className="required">*</span>
                             </label>
@@ -325,7 +608,7 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                                 >
                                     <span className="tab-icon">🎓</span>
                                     <span className="tab-title">นิสิต</span>
-                                    <span className="tab-subtitle">Student</span>
+                                    <span className="tab-subtitle">มหาวิทยาลัยทักษิณ</span>
                                 </button>
                                 <button
                                     type="button"
@@ -333,8 +616,8 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                                     onClick={() => handleTypeSwitch('staff')}
                                 >
                                     <span className="tab-icon">👔</span>
-                                    <span className="tab-title">อาจารย์ / บุคลากร</span>
-                                    <span className="tab-subtitle">Faculty & Staff</span>
+                                    <span className="tab-title">อาจารย์ / บุคลากร / อื่นๆ</span>
+                                    <span className="tab-subtitle">อาจารย์, รร.สาธิต, วมว., นักเรียน</span>
                                 </button>
                             </div>
                         </div>
@@ -342,12 +625,12 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                         {/* Borrower Name */}
                         <div className="form-group">
                             <label className="form-label">
-                                {formData.borrowerType === 'staff' ? 'ชื่อ-สกุล (อาจารย์/บุคลากร)' : 'ชื่อ-สกุล นิสิต'} <span className="required">*</span>
+                                {formData.borrowerType === 'staff' ? 'ชื่อ-สกุล (อาจารย์ / ครู / ผู้ขอยืม)' : 'ชื่อ-สกุล นิสิต'} <span className="required">*</span>
                             </label>
                             <input
                                 type="text"
                                 className="form-input"
-                                placeholder={formData.borrowerType === 'staff' ? "เช่น ดร.สมชาย ใจดี หรือ อาจารย์สมใจ รักเรียน" : "เช่น นายสมชาย ใจดี"}
+                                placeholder={formData.borrowerType === 'staff' ? "เช่น ดร.สมชาย ใจดี, ครูสมหญิง (สาธิต), หรือ นายนพดล (วมว.)" : "เช่น นายสมชาย ใจดี"}
                                 value={formData.borrowerName}
                                 onChange={e => setFormData({ ...formData, borrowerName: e.target.value })}
                             />
@@ -393,91 +676,35 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                                     </div>
                                 </div>
 
-                                {/* Student: Faculty & Quantity */}
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">คณะ</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            placeholder="เช่น คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล"
-                                            value={formData.affiliation}
-                                            onChange={e => setFormData({ ...formData, affiliation: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">
-                                            จำนวนที่ต้องการยืม <span className="required">*</span>
-                                        </label>
-                                        <div className="quantity-stepper">
-                                            <button
-                                                type="button"
-                                                className="btn-stepper btn-stepper-minus"
-                                                disabled={Number(formData.quantity) <= 1}
-                                                onClick={() => handleQuantityChange(-1)}
-                                                title="ลดจำนวน"
-                                                aria-label="ลดจำนวน"
-                                            >
-                                                −
-                                            </button>
-                                            <input
-                                                type="number"
-                                                className="stepper-input"
-                                                min="1"
-                                                max={equipment.quantity}
-                                                value={formData.quantity}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    if (val === '') {
-                                                        setFormData(prev => ({ ...prev, quantity: '' }));
-                                                    } else {
-                                                        const num = parseInt(val, 10);
-                                                        if (!isNaN(num)) {
-                                                            setFormData(prev => ({ ...prev, quantity: Math.max(1, Math.min(equipment.quantity, num)) }));
-                                                        }
-                                                    }
-                                                }}
-                                                onBlur={() => {
-                                                    if (!formData.quantity || formData.quantity < 1) {
-                                                        setFormData(prev => ({ ...prev, quantity: 1 }));
-                                                    }
-                                                }}
-                                            />
-                                            <button
-                                                type="button"
-                                                className="btn-stepper btn-stepper-plus"
-                                                disabled={Number(formData.quantity) >= equipment.quantity}
-                                                onClick={() => handleQuantityChange(1)}
-                                                title="เพิ่มจำนวน"
-                                                aria-label="เพิ่มจำนวน"
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                        <small className="stepper-helper">คงเหลือในคลัง {equipment.quantity} ชิ้น</small>
-                                        {errors.quantity && <p className="form-error">{errors.quantity}</p>}
-                                    </div>
-                                </div>
+                                {/* Student: Faculty Dropdown */}
+                                <FacultySelect
+                                    value={selectedFaculty}
+                                    onChange={handleFacultySelect}
+                                    customValue={customAffiliation}
+                                    onCustomChange={handleCustomAffiliationChange}
+                                    error={errors.affiliation}
+                                    required={true}
+                                    label="คณะ"
+                                />
                             </>
                         ) : (
                             <>
-                                {/* Staff: Email & Phone */}
+                                {/* Staff / Teachers / Satit / SCiUS / External: Email & Phone */}
                                 <div className="form-row">
                                     <div className="form-group">
                                         <label className="form-label">
-                                            อีเมลติดต่อ (TSU Mail / Gmail) <span className="required">*</span>
+                                            อีเมลติดต่อ (TSU Mail / Gmail / โรงเรียน) <span className="required">*</span>
                                         </label>
                                         <input
                                             type="email"
                                             className="form-input"
-                                            placeholder="เช่น ajarn@tsu.ac.th"
+                                            placeholder="เช่น ajarn@tsu.ac.th หรือ somchai@gmail.com"
                                             value={formData.staffEmail}
                                             onChange={e => setFormData({ ...formData, staffEmail: e.target.value })}
                                         />
                                         {formData.staffEmail.trim() && (
                                             <div className="email-hint-badge">
-                                                📧 สำหรับรับแจ้งเตือนผลอนุมัติและแจ้งเตือนกำหนดคืน
+                                                📧 สำหรับรับแจ้งเตือนผลอนุมัติและแจ้งเตือนกำหนดเวลาคืน
                                             </div>
                                         )}
                                         {errors.staffEmail && <p className="form-error">{errors.staffEmail}</p>}
@@ -498,86 +725,76 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                                     </div>
                                 </div>
 
-                                {/* Staff: Faculty & Position */}
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">
-                                            คณะ <span className="required">*</span>
+                                {/* Staff / Teachers / Satit / SCiUS: Flexible Affiliation (Optional) */}
+                                <div className="form-group">
+                                    <div className="affiliation-header-row">
+                                        <label className="form-label" style={{ marginBottom: 0 }}>
+                                            หน่วยงาน / โรงเรียน / สังกัด <span className="optional-badge">(ไม่บังคับ - เว้นว่างได้)</span>
                                         </label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            placeholder="เช่น คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล"
-                                            value={formData.affiliation}
-                                            onChange={e => setFormData({ ...formData, affiliation: e.target.value })}
-                                        />
-                                        {errors.affiliation && <p className="form-error">{errors.affiliation}</p>}
                                     </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">ตำแหน่ง (ถ้ามี)</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            placeholder="เช่น อาจารย์ประจำสาขา, นักวิชาการศึกษา"
-                                            value={formData.position}
-                                            onChange={e => setFormData({ ...formData, position: e.target.value })}
-                                        />
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="เช่น รร.สาธิต ม.ทักษิณ, โครงการ วมว., คณะวิทย์ฯ (หรือเว้นว่างไว้)"
+                                        value={formData.affiliation}
+                                        onChange={e => setFormData({ ...formData, affiliation: e.target.value })}
+                                    />
+                                    <div className="quick-affiliation-tags">
+                                        <span className="quick-tag-label">แตะระบุด่วน:</span>
+                                        <button
+                                            type="button"
+                                            className={`quick-tag-chip ${formData.affiliation === 'โรงเรียนสาธิต มหาวิทยาลัยทักษิณ' ? 'active' : ''}`}
+                                            onClick={() => setFormData(prev => ({
+                                                ...prev,
+                                                affiliation: prev.affiliation === 'โรงเรียนสาธิต มหาวิทยาลัยทักษิณ' ? '' : 'โรงเรียนสาธิต มหาวิทยาลัยทักษิณ'
+                                            }))}
+                                        >
+                                            🏫 รร.สาธิต ม.ทักษิณ
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`quick-tag-chip ${formData.affiliation === 'โครงการ วมว. มหาวิทยาลัยทักษิณ' ? 'active' : ''}`}
+                                            onClick={() => setFormData(prev => ({
+                                                ...prev,
+                                                affiliation: prev.affiliation === 'โครงการ วมว. มหาวิทยาลัยทักษิณ' ? '' : 'โครงการ วมว. มหาวิทยาลัยทักษิณ'
+                                            }))}
+                                        >
+                                            🔬 โครงการ วมว.
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`quick-tag-chip ${formData.affiliation === 'คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล' ? 'active' : ''}`}
+                                            onClick={() => setFormData(prev => ({
+                                                ...prev,
+                                                affiliation: prev.affiliation === 'คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล' ? '' : 'คณะวิทยาศาสตร์และนวัตกรรมดิจิทัล'
+                                            }))}
+                                        >
+                                            💻 คณะวิทย์ฯ-ดิจิทัล
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`quick-tag-chip ${formData.affiliation === 'มหาวิทยาลัยทักษิณ' ? 'active' : ''}`}
+                                            onClick={() => setFormData(prev => ({
+                                                ...prev,
+                                                affiliation: prev.affiliation === 'มหาวิทยาลัยทักษิณ' ? '' : 'มหาวิทยาลัยทักษิณ'
+                                            }))}
+                                        >
+                                            🏛️ ม.ทักษิณ
+                                        </button>
                                     </div>
                                 </div>
 
-                                {/* Staff: Quantity */}
                                 <div className="form-group">
                                     <label className="form-label">
-                                        จำนวนที่ต้องการยืม <span className="required">*</span>
+                                        ตำแหน่ง / ชั้นปี <span className="optional-badge">(ถ้ามี - เว้นว่างได้)</span>
                                     </label>
-                                    <div className="quantity-stepper">
-                                        <button
-                                            type="button"
-                                            className="btn-stepper btn-stepper-minus"
-                                            disabled={Number(formData.quantity) <= 1}
-                                            onClick={() => handleQuantityChange(-1)}
-                                            title="ลดจำนวน"
-                                            aria-label="ลดจำนวน"
-                                        >
-                                            −
-                                        </button>
-                                        <input
-                                            type="number"
-                                            className="stepper-input"
-                                            min="1"
-                                            max={equipment.quantity}
-                                            value={formData.quantity}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                if (val === '') {
-                                                    setFormData(prev => ({ ...prev, quantity: '' }));
-                                                } else {
-                                                    const num = parseInt(val, 10);
-                                                    if (!isNaN(num)) {
-                                                        setFormData(prev => ({ ...prev, quantity: Math.max(1, Math.min(equipment.quantity, num)) }));
-                                                    }
-                                                }
-                                            }}
-                                            onBlur={() => {
-                                                if (!formData.quantity || formData.quantity < 1) {
-                                                    setFormData(prev => ({ ...prev, quantity: 1 }));
-                                                }
-                                            }}
-                                        />
-                                        <button
-                                            type="button"
-                                            className="btn-stepper btn-stepper-plus"
-                                            disabled={Number(formData.quantity) >= equipment.quantity}
-                                            onClick={() => handleQuantityChange(1)}
-                                            title="เพิ่มจำนวน"
-                                            aria-label="เพิ่มจำนวน"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                    <small className="stepper-helper">คงเหลือในคลัง {equipment.quantity} ชิ้น</small>
-                                    {errors.quantity && <p className="form-error">{errors.quantity}</p>}
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="เช่น ครูผู้สอน, นักเรียน ม.5 (วมว.), เจ้าหน้าที่, หรืออาจารย์ประจำสาขา"
+                                        value={formData.position}
+                                        onChange={e => setFormData({ ...formData, position: e.target.value })}
+                                    />
                                 </div>
                             </>
                         )}
@@ -780,9 +997,9 @@ export default function BorrowFormModal({ equipment, onClose, onSubmit }) {
                         <button
                             type="submit"
                             className="btn btn-primary"
-                            disabled={submitting || (durationInfo && !durationInfo.isValid)}
+                            disabled={submitting || (durationInfo && !durationInfo.isValid) || selectedItems.length === 0}
                         >
-                            {submitting ? '⏳ กำลังบันทึก...' : '📤 ส่งคำขอยืม'}
+                            {submitting ? '⏳ กำลังบันทึก...' : `📤 ส่งคำขอยืม (${selectedItems.length} รายการ, ${totalQuantity} ชิ้น)`}
                         </button>
                     </div>
                 </form>

@@ -17,33 +17,63 @@ export function getStudentEmail(studentId) {
 }
 
 /**
+/**
+ * สร้างข้อความแสดงรายการครุภัณฑ์ (รองรับทั้งแบบชิ้นเดียว และหลายชิ้น)
+ */
+function formatEquipmentDetails(request) {
+    if (request.items && Array.isArray(request.items) && request.items.length > 0) {
+        const lines = request.items.map((item, idx) => 
+            `  ${idx + 1}. ${item.equipmentName} (${item.quantity} ชิ้น)${item.equipmentSerial ? ` [SN: ${item.equipmentSerial}]` : ''}`
+        );
+        const totalQty = request.totalQuantity || request.quantity || request.items.reduce((s, i) => s + (i.quantity || 1), 0);
+        return `รายการครุภัณฑ์ (${request.items.length} รายการ, รวม ${totalQty} ชิ้น):\n${lines.join('\n')}`;
+    }
+    return `ครุภัณฑ์: ${request.equipmentName} (${request.quantity} ชิ้น)`;
+}
+
+function getEquipmentTitle(request) {
+    if (request.items && Array.isArray(request.items) && request.items.length > 0) {
+        if (request.items.length === 1) {
+            return `${request.items[0].equipmentName} (${request.items[0].quantity} ชิ้น)`;
+        }
+        const totalQty = request.totalQuantity || request.quantity || request.items.reduce((s, i) => s + (i.quantity || 1), 0);
+        return `${request.items[0].equipmentName} และอื่นๆ รวม ${request.items.length} รายการ (${totalQty} ชิ้น)`;
+    }
+    return `${request.equipmentName} (${request.quantity} ชิ้น)`;
+}
+
+/**
  * สร้างหัวข้อและเนื้อหาอีเมลตามสถานะคำขอ
  */
 export function generateEmailTemplate(type, request) {
-    const studentEmail = request.studentEmail || getStudentEmail(request.studentId);
-    const returnDateStr = formatDate(request.returnDate);
-    const borrowDateStr = formatDate(request.borrowDate);
+    const studentEmail = request.studentEmail || request.borrowerEmail || request.contactEmail || getStudentEmail(request.studentId);
+    const returnDateStr = formatDate(request.returnDate, true);
+    const borrowDateStr = formatDate(request.borrowDate, true);
+    const equipDetails = formatEquipmentDetails(request);
+    const equipTitle = getEquipmentTitle(request);
+    const borrowerIdentifier = request.borrowerType === 'staff'
+        ? (request.staffEmail || request.position || 'อาจารย์/บุคลากร')
+        : (request.studentId || '-');
 
     switch (type) {
         case 'approved':
         case 'STATUS_APPROVED':
             return {
                 to: studentEmail,
-                subject: `[สโมสรนิสิต TSU] อนุมัติคำขอยืมครุภัณฑ์: ${request.equipmentName}`,
-                body: `เรียนคุณ ${request.borrowerName} (${request.studentId})
+                subject: `[สโมสรนิสิต TSU] อนุมัติคำขอยืมครุภัณฑ์: ${equipTitle}`,
+                body: `เรียนคุณ ${request.borrowerName} (${borrowerIdentifier})
 
 สโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล มหาวิทยาลัยทักษิณ
-ขอแจ้งให้ทราบว่า คำขอยืมครุภัณฑ์ "${request.equipmentName}" จำนวน ${request.quantity} ชิ้น
-ได้รับการ "อนุมัติ" เรียบร้อยแล้ว ✅
+ขอแจ้งให้ทราบว่า คำขอยืมครุภัณฑ์ของคุณได้รับการ "อนุมัติ" เรียบร้อยแล้ว ✅
 
 📋 รายละเอียดการยืม:
-- ครุภัณฑ์: ${request.equipmentName} (${request.quantity} ชิ้น)
+${equipDetails}
 - สถานที่ใช้งาน: ${request.location || '-'}
 - วันที่ยืม: ${borrowDateStr}
 - กำหนดส่งคืน: ${returnDateStr}
 - วัตถุประสงค์: ${request.purpose || '-'}
 
-📌 กรุณานำบัตรประจำตัวนิสิตมาติดต่อขอรับครุภัณฑ์ ณ ห้องสโมสรนิสิต
+📌 กรุณานำบัตรประจำตัวนิสิต/บุคลากรมาติดต่อขอรับครุภัณฑ์ ณ ห้องสโมสรนิสิต
 และโปรดนำมาส่งคืนภายในกำหนดเวลาดังกล่าว
 
 ขอขอบคุณ
@@ -55,12 +85,14 @@ export function generateEmailTemplate(type, request) {
         case 'STATUS_REJECTED':
             return {
                 to: studentEmail,
-                subject: `[สโมสรนิสิต TSU] แจ้งผลการพิจารณาคำขอยืมครุภัณฑ์: ${request.equipmentName}`,
-                body: `เรียนคุณ ${request.borrowerName} (${request.studentId})
+                subject: `[สโมสรนิสิต TSU] แจ้งผลการพิจารณาคำขอยืมครุภัณฑ์: ${equipTitle}`,
+                body: `เรียนคุณ ${request.borrowerName} (${borrowerIdentifier})
 
 สโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล มหาวิทยาลัยทักษิณ
-ขอแจ้งให้ทราบว่า คำขอยืมครุภัณฑ์ "${request.equipmentName}" จำนวน ${request.quantity} ชิ้น
-"ไม่ได้รับการอนุมัติ" ❌
+ขอแจ้งให้ทราบว่า คำขอยืมครุภัณฑ์ของคุณ "ไม่ได้รับการอนุมัติ" ❌
+
+📋 รายการ:
+${equipDetails}
 
 📌 เหตุผล:
 ${request.rejectReason || 'ข้อมูลไม่ครบถ้วนหรือไม่เป็นไปตามระเบียบของสโมสร'}
@@ -72,15 +104,45 @@ ${request.rejectReason || 'ข้อมูลไม่ครบถ้วนห�
 มหาวิทยาลัยทักษิณ (${OFFICIAL_SENDER_EMAIL})`
             };
 
+        case 'due_soon':
+        case 'STATUS_DUE_SOON':
+            return {
+                to: studentEmail,
+                subject: `[แจ้งเตือนด่วน - สโมสรนิสิต TSU] ใกล้ถึงกำหนดส่งคืนครุภัณฑ์ในอีก 1 ชม.: ${equipTitle}`,
+                body: `เรียนคุณ ${request.borrowerName} (${borrowerIdentifier})
+
+สโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล มหาวิทยาลัยทักษิณ
+ขอแจ้งเตือนว่า การยืมครุภัณฑ์ของคุณ "ใกล้จะถึงกำหนดส่งคืนในอีกประมาณ 1 ชั่วโมง" ⏰
+
+📋 รายละเอียดการยืม:
+${equipDetails}
+- สถานที่ใช้งาน: ${request.location || '-'}
+- วันที่ยืม: ${borrowDateStr}
+- กำหนดส่งคืน: ${returnDateStr}
+- วัตถุประสงค์: ${request.purpose || '-'}
+
+📌 กรุณาตรวจสอบความเรียบร้อยและนำครุภัณฑ์มาส่งคืน ณ ห้องสโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล
+ภายในกำหนดเวลาดังกล่าว เพื่ออำนวยความสะดวกแก่นิสิตและอาจารย์ท่านอื่นที่รอใช้งานต่อไป
+
+หากนำมาส่งคืนเรียบร้อยแล้ว หรือมีเหตุขัดข้องประการใด โปรดติดต่อเจ้าหน้าที่สโมสรนิสิตทันที
+
+ขอขอบคุณ
+สโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล
+มหาวิทยาลัยทักษิณ (${OFFICIAL_SENDER_EMAIL})`
+            };
+
         case 'overdue':
         case 'STATUS_OVERDUE':
             return {
                 to: studentEmail,
-                subject: `[ด่วน - สโมสรนิสิต TSU] แจ้งเตือนเกินกำหนดส่งคืนครุภัณฑ์: ${request.equipmentName}`,
-                body: `เรียนคุณ ${request.borrowerName} (${request.studentId})
+                subject: `[ด่วนที่สุด - สโมสรนิสิต TSU] แจ้งเตือนเกินกำหนดส่งคืนครุภัณฑ์: ${equipTitle}`,
+                body: `เรียนคุณ ${request.borrowerName} (${borrowerIdentifier})
 
-⚠️ ด่วนที่สุด: การยืมครุภัณฑ์ "${request.equipmentName}" จำนวน ${request.quantity} ชิ้น
-ได้ "เกินกำหนดส่งคืน" แล้ว (กำหนดคืน: ${returnDateStr})
+⚠️ ด่วนที่สุด: การยืมครุภัณฑ์ของคุณได้ "เกินกำหนดส่งคืน" แล้ว 🔥
+(กำหนดคืน: ${returnDateStr})
+
+📋 รายการครุภัณฑ์ที่ต้องส่งคืน:
+${equipDetails}
 
 กรุณานำครุภัณฑ์ดังกล่าวมาส่งคืน ณ ห้องสโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัลโดยเร็วที่สุด
 เพื่อไม่ให้กระทบต่อกิจกรรมของนิสิตท่านอื่นและระเบียบวินัยของสโมสร
@@ -96,13 +158,16 @@ ${request.rejectReason || 'ข้อมูลไม่ครบถ้วนห�
         case 'STATUS_RETURNED':
             return {
                 to: studentEmail,
-                subject: `[สโมสรนิสิต TSU] ยืนยันการรับคืนครุภัณฑ์: ${request.equipmentName}`,
-                body: `เรียนคุณ ${request.borrowerName} (${request.studentId})
+                subject: `[สโมสรนิสิต TSU] ยืนยันการรับคืนครุภัณฑ์: ${equipTitle}`,
+                body: `เรียนคุณ ${request.borrowerName} (${borrowerIdentifier})
 
 สโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล มหาวิทยาลัยทักษิณ
-ขอแจ้งว่าได้รับคืนครุภัณฑ์ "${request.equipmentName}" จำนวน ${request.quantity} ชิ้น เรียบร้อยแล้ว 🔵
+ขอแจ้งว่าได้รับคืนครุภัณฑ์เรียบร้อยแล้ว 🔵
 
-การยืมครุภัณฑ์ในรายการนี้เสร็จสมบูรณ์
+📋 รายการที่ส่งคืน:
+${equipDetails}
+
+การยืมครุภัณฑ์ในรายการนี้เสร็จสมบูรณ์เรียบร้อย
 
 ขอขอบคุณที่ให้ความร่วมมือในการส่งคืนครุภัณฑ์ตามกำหนด
 สโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล
@@ -112,8 +177,8 @@ ${request.rejectReason || 'ข้อมูลไม่ครบถ้วนห�
         default:
             return {
                 to: studentEmail,
-                subject: `[สโมสรนิสิต TSU] แจ้งเตือนการยืมครุภัณฑ์: ${request.equipmentName}`,
-                body: `เรียนคุณ ${request.borrowerName} (${request.studentId})\n\nรายการยืมครุภัณฑ์: ${request.equipmentName} (${request.quantity} ชิ้น)\nสถานะ: ${request.status}\nกำหนดคืน: ${returnDateStr}`
+                subject: `[สโมสรนิสิต TSU] แจ้งเตือนการยืมครุภัณฑ์: ${equipTitle}`,
+                body: `เรียนคุณ ${request.borrowerName} (${borrowerIdentifier})\n\n${equipDetails}\nสถานะ: ${request.status}\nกำหนดคืน: ${returnDateStr}`
             };
     }
 }
@@ -130,7 +195,7 @@ export function createMailtoUrl(type, request) {
  * ส่งการแจ้งเตือนอีเมลอัตโนมัติผ่าน Google Apps Script Webhook
  */
 export async function sendBorrowNotification({ type, data }) {
-    const studentEmail = data.studentEmail || getStudentEmail(data.studentId);
+    const studentEmail = data.studentEmail || data.borrowerEmail || data.contactEmail || getStudentEmail(data.studentId);
     const template = generateEmailTemplate(type, data);
 
     console.log(`[Notification Service] Sender: ${OFFICIAL_SENDER_EMAIL}`);
@@ -163,17 +228,20 @@ export async function sendBorrowNotification({ type, data }) {
 }
 
 export function generateBorrowSlipText(request) {
-    const studentEmail = request.studentEmail || getStudentEmail(request.studentId);
+    const studentEmail = request.studentEmail || request.borrowerEmail || request.contactEmail || getStudentEmail(request.studentId);
+    const equipDetails = formatEquipmentDetails(request);
+
     return `[สโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล มหาวิทยาลัยทักษิณ]
 ส่งจาก: ${OFFICIAL_SENDER_EMAIL}
 ใบยืนยันการยืมครุภัณฑ์:
-- ผู้ยืม: ${request.borrowerName} (${request.studentId})
-- อีเมลมหาวิทยาลัย: ${studentEmail}
+- ผู้ยืม: ${request.borrowerName} (${request.borrowerType === 'staff' ? (request.staffEmail || 'อาจารย์/บุคลากร') : request.studentId})
+- อีเมลติดต่อ: ${studentEmail}
 - เบอร์โทร: ${request.phone}
-- ครุภัณฑ์: ${request.equipmentName} (${request.quantity} ชิ้น)
+${equipDetails}
 - สถานที่: ${request.location || '-'}
 - วัตถุประสงค์: ${request.purpose || '-'}
 - สถานะ: ${request.status}
-- วันที่ยืม: ${request.borrowDate ? formatDate(request.borrowDate) : '-'}
-- กำหนดคืน: ${request.returnDate ? formatDate(request.returnDate) : '-'}`;
+- วันที่ยืม: ${request.borrowDate ? formatDate(request.borrowDate, true) : '-'}
+- กำหนดคืน: ${request.returnDate ? formatDate(request.returnDate, true) : '-'}`;
 }
+

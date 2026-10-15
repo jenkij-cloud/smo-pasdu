@@ -171,3 +171,45 @@ export function getDaysOverdue(request) {
     const diffMs = new Date().getTime() - returnDate.getTime();
     return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 }
+
+/**
+ * ตรวจสอบว่าใกล้ถึงกำหนดส่งคืนหรือไม่ (เช่น ภายใน 1 ชั่วโมง หรือ 60 นาที)
+ */
+export function isDueSoon(request, warningMinutes = 60) {
+    if (!request || request.status !== 'approved') return false;
+    const returnDate = parseDate(request.returnDate);
+    if (!returnDate) return false;
+
+    const now = new Date();
+    const diffMs = returnDate.getTime() - now.getTime();
+    if (diffMs <= 0) return false; // เลยกำหนดไปแล้ว (Overdue)
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    return diffMinutes <= warningMinutes;
+}
+
+/**
+ * คำนวณนาทีที่เหลือก่อนถึงกำหนดส่งคืน
+ */
+export function getMinutesUntilDue(request) {
+    if (!request || !request.returnDate) return 0;
+    const returnDate = parseDate(request.returnDate);
+    if (!returnDate) return 0;
+
+    const diffMs = returnDate.getTime() - new Date().getTime();
+    return Math.max(0, Math.floor(diffMs / (1000 * 60)));
+}
+
+/**
+ * แสดงข้อความเวลาที่เหลือก่อนถึงกำหนดส่งคืน e.g. "เหลืออีก 45 นาที"
+ */
+export function getDueSoonText(request) {
+    const minutes = getMinutesUntilDue(request);
+    if (minutes <= 0) return 'ถึงกำหนดแล้ว';
+    if (minutes < 60) return `เหลืออีก ${minutes} นาที`;
+    const hours = Math.floor(minutes / 60);
+    const remMinutes = minutes % 60;
+    if (remMinutes === 0) return `เหลืออีก ${hours} ชั่วโมง`;
+    return `เหลืออีก ${hours} ชม. ${remMinutes} นาที`;
+}
+

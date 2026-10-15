@@ -1,4 +1,9 @@
-export default function EquipmentCard({ equipment, onBorrow }) {
+export default function EquipmentCard({
+    equipment,
+    onBorrow,
+    isInCart = false,
+    onToggleCart = null
+}) {
     const isOutOfStock = equipment.quantity <= 0;
     const isLowStock = equipment.quantity > 0 && equipment.quantity <= 2;
 
@@ -11,7 +16,7 @@ export default function EquipmentCard({ equipment, onBorrow }) {
     const condition = conditionLabel[equipment.condition] || (equipment.condition ? { text: equipment.condition, color: '#64748b' } : null);
 
     return (
-        <div className={`equipment-card ${isOutOfStock ? 'out-of-stock' : ''}`}>
+        <div className={`equipment-card ${isOutOfStock ? 'out-of-stock' : ''} ${isInCart ? 'card-selected-in-cart' : ''}`}>
             <div className="card-image-wrapper">
                 {equipment.imageUrl ? (
                     <img
@@ -42,6 +47,11 @@ export default function EquipmentCard({ equipment, onBorrow }) {
                         </span>
                     )}
                 </div>
+                {isInCart && (
+                    <div className="card-cart-ribbon">
+                        ✓ เลือกแล้ว
+                    </div>
+                )}
             </div>
 
             <div className="card-body">
@@ -70,14 +80,31 @@ export default function EquipmentCard({ equipment, onBorrow }) {
                     {isLowStock && <span className="stock-warning">ใกล้หมด</span>}
                 </div>
 
-                <button
-                    className={`btn-borrow ${isOutOfStock ? 'btn-disabled' : ''}`}
-                    onClick={() => onBorrow(equipment)}
-                    disabled={isOutOfStock}
-                >
-                    {isOutOfStock ? '❌ หมดชั่วคราว' : '📋 ยื่นคำขอยืม'}
-                </button>
+                <div className="card-actions-row">
+                    <button
+                        className={`btn-borrow ${isOutOfStock ? 'btn-disabled' : ''}`}
+                        onClick={() => onBorrow(equipment)}
+                        disabled={isOutOfStock}
+                    >
+                        {isOutOfStock ? '❌ หมดชั่วคราว' : '📋 ขอยืมทันที'}
+                    </button>
+
+                    {!isOutOfStock && onToggleCart && (
+                        <button
+                            type="button"
+                            className={`btn-cart-toggle ${isInCart ? 'btn-cart-selected' : ''}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleCart(equipment);
+                            }}
+                            title={isInCart ? 'นำออกจากรายการยืม' : 'เพิ่มในรายการยืมร่วมหลายชิ้น'}
+                        >
+                            {isInCart ? '✓ นำออกจากรายการ' : '➕ รวมยืมหลายชิ้น'}
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );
 }
+

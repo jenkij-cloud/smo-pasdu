@@ -4,7 +4,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import Header from '../components/Header';
 import StatusBadge from '../components/StatusBadge';
 import RequestDetailModal from '../components/RequestDetailModal';
-import { formatDate, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText } from '../utils/dateUtils';
+import { formatDate, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText, isDueSoon, getDueSoonText } from '../utils/dateUtils';
 import { getStudentEmail } from '../utils/notificationService';
 import { useToast } from '../context/ToastContext';
 
@@ -143,23 +143,49 @@ export default function StatusCheckPage() {
                             {results.map(request => {
                                 const overdue = isOverdue(request);
                                 const overdueDays = getDaysOverdue(request);
+                                const dueSoon = isDueSoon(request);
                                 const studentEmail = request.studentEmail || getStudentEmail(request.studentId);
+                                const hasMulti = request.items && Array.isArray(request.items) && request.items.length > 1;
 
                                 return (
                                     <div
                                         key={request.id}
-                                        className={`status-card ${overdue ? 'overdue' : ''} ${request.status === 'rejected' ? 'rejected-card' : ''}`}
+                                        className={`status-card ${overdue ? 'overdue' : ''} ${dueSoon && !overdue ? 'card-due-soon' : ''} ${request.status === 'rejected' ? 'rejected-card' : ''}`}
                                     >
                                         <div className="status-card-header">
-                                            <h4>{request.equipmentName}</h4>
+                                            <h4>
+                                                {hasMulti
+                                                    ? `📦 ครุภัณฑ์ ${request.items.length} รายการ (รวม ${request.totalQuantity || request.quantity} ชิ้น)`
+                                                    : request.equipmentName}
+                                            </h4>
                                             <StatusBadge status={overdue ? 'overdue' : request.status} />
                                         </div>
 
                                         <div className="status-card-body">
-                                            <div className="status-card-row">
-                                                <span className="status-card-label">📦 จำนวน:</span>
-                                                <span style={{ fontWeight: 600 }}>{request.quantity} ชิ้น</span>
-                                            </div>
+                                            {hasMulti ? (
+                                                <div className="status-items-chips-wrapper">
+                                                    <div className="status-items-chips-title">
+                                                        <span>📦 ครุภัณฑ์ที่ยืม ({request.items.length} รายการ, {request.totalQuantity || request.quantity} ชิ้น)</span>
+                                                    </div>
+                                                    <div className="status-items-chips-list">
+                                                        {request.items.map((it, idx) => (
+                                                            <div key={idx} className="status-item-chip">
+                                                                <span className="status-chip-icon">📦</span>
+                                                                <span className="status-chip-name">{it.equipmentName}</span>
+                                                                <span className="status-chip-qty">×{it.quantity}</span>
+                                                                {it.equipmentSerial && (
+                                                                    <span className="status-chip-sn">SN: {it.equipmentSerial}</span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="status-card-row">
+                                                    <span className="status-card-label">📦 จำนวน:</span>
+                                                    <span style={{ fontWeight: 600 }}>{request.quantity} ชิ้น</span>
+                                                </div>
+                                            )}
                                             <div className="status-card-row">
                                                 <span className="status-card-label">📧 เมลผู้ยืม:</span>
                                                 <span style={{ color: 'var(--primary)' }}>{studentEmail}</span>
@@ -174,12 +200,12 @@ export default function StatusCheckPage() {
                                             </div>
                                             <div className="status-card-row">
                                                 <span className="status-card-label">📅 วันที่ยืม:</span>
-                                                <span>{formatDate(request.borrowDate)}</span>
+                                                <span>{formatDate(request.borrowDate, true)}</span>
                                             </div>
                                             <div className="status-card-row">
                                                 <span className="status-card-label">📅 กำหนดคืน:</span>
-                                                <span className={overdue ? 'overdue-text' : ''} style={{ fontWeight: overdue ? 700 : 500 }}>
-                                                    {formatDate(request.returnDate)}
+                                                <span className={overdue ? 'overdue-text' : (dueSoon ? 'duesoon-text' : '')} style={{ fontWeight: (overdue || dueSoon) ? 700 : 500 }}>
+                                                    {formatDate(request.returnDate, true)}
                                                 </span>
                                             </div>
                                             {request.borrowDate && request.returnDate && (
@@ -199,12 +225,19 @@ export default function StatusCheckPage() {
                                                 </div>
                                             )}
 
+                                            {dueSoon && !overdue && (
+                                                <div className="duesoon-warning" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius)', fontSize: '0.85rem', marginTop: '0.5rem', fontWeight: 600 }}>
+                                                    ⏰ ใกล้ถึงกำหนดส่งคืนแล้ว ({getDueSoonText(request)})! กรุณาเตรียมนำครุภัณฑ์มาส่งคืนสโมสรนิสิต
+                                                </div>
+                                            )}
+
                                             {overdue && (
                                                 <div className="overdue-warning">
                                                     🔥 เกินกำหนดคืนแล้ว {getOverdueText(request) || `${overdueDays} วัน`}! กรุณานำครุภัณฑ์มาส่งคืนสโมสรนิสิตโดยเร็ว
                                                 </div>
                                             )}
                                         </div>
+
 
                                         <div className="status-card-footer">
                                             <button

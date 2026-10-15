@@ -1,5 +1,5 @@
 import StatusBadge from './StatusBadge';
-import { formatDate, formatDateTime, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText } from '../utils/dateUtils';
+import { formatDate, formatDateTime, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText, isDueSoon, getDueSoonText } from '../utils/dateUtils';
 import { generateBorrowSlipText, getStudentEmail, createMailtoUrl } from '../utils/notificationService';
 import { useToast } from '../context/ToastContext';
 
@@ -10,7 +10,8 @@ export default function RequestDetailModal({
     isAdmin = false,
     onApprove,
     onReject,
-    onReturn
+    onReturn,
+    onSendDueReminder
 }) {
     const toast = useToast();
     if (!isOpen || !request) return null;
@@ -18,7 +19,9 @@ export default function RequestDetailModal({
     const overdue = isOverdue(request);
     const overdueText = getOverdueText(request);
     const overdueDays = getDaysOverdue(request);
-    const studentEmail = request.studentEmail || getStudentEmail(request.studentId);
+    const dueSoon = isDueSoon(request);
+    const dueSoonText = getDueSoonText(request);
+    const studentEmail = request.studentEmail || request.borrowerEmail || request.contactEmail || getStudentEmail(request.studentId);
     const durationText = getBorrowDurationText(request.borrowDate, request.returnDate);
 
     const handleCopySlip = () => {
@@ -27,7 +30,11 @@ export default function RequestDetailModal({
         toast.success('คัดลอกรายละเอียดคำขอเรียบร้อยแล้ว!');
     };
 
-    const mailtoUrl = createMailtoUrl(overdue ? 'overdue' : request.status, request);
+    const mailtoType = overdue ? 'overdue' : (dueSoon ? 'due_soon' : request.status);
+    const mailtoUrl = createMailtoUrl(mailtoType, request);
+
+    const hasMultiItems = request.items && Array.isArray(request.items) && request.items.length > 0;
+    const totalQty = request.totalQuantity || request.quantity || (hasMultiItems ? request.items.reduce((s, i) => s + (i.quantity || 1), 0) : 1);
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -40,7 +47,9 @@ export default function RequestDetailModal({
                     <div className="detail-header-card">
                         <div>
                             <h2 style={{ fontSize: '1.25rem', color: 'var(--primary-dark)', marginBottom: '4px' }}>
-                                {request.equipmentName}
+                                {hasMultiItems && request.items.length > 1
+                                    ? `รายการขอยืม (${request.items.length} รายการ, รวม ${totalQty} ชิ้น)`
+                                    : request.equipmentName}
                             </h2>
                             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                                 รหัสอ้างอิง: <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{request.id}</code>
@@ -53,8 +62,36 @@ export default function RequestDetailModal({
                                     🔥 เกินกำหนดแล้ว {overdueText || `${overdueDays} วัน`}
                                 </p>
                             )}
+                            {dueSoon && !overdue && (
+                                <p style={{ color: '#d97706', fontSize: '0.8rem', fontWeight: 600, marginTop: '4px' }}>
+                                    ⏰ ใกล้ถึงกำหนดคืน ({dueSoonText})
+                                </p>
+                            )}
                         </div>
                     </div>
+
+                    {/* แจ้งเตือนกรณีใกล้ถึงกำหนดส่งคืน */}
+                    {dueSoon && !overdue && (
+                        <div className="alert alert-warning" style={{ margin: '1rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <strong>⏰ ใกล้ถึงกำหนดส่งคืนในอีก 1 ชั่วโมง ({dueSoonText})</strong>
+                                <p style={{ margin: '2px 0 0 0', fontSize: '0.875rem' }}>
+                                    {request.dueReminderSent
+                                        ? '✅ ระบบได้ส่งอีเมลแจ้งเตือนไปยังผู้ยืมแล้ว'
+                                        : 'ยังไม่ได้ส่งอีเมลแจ้งเตือน หรือกำลังจะส่งตามรอบอัตโนมัติ'}
+                                </p>
+                            </div>
+                            {isAdmin && onSendDueReminder && (
+                                <button
+                                    type="button"
+                                    className="btn btn-warning btn-sm"
+                                    onClick={() => onSendDueReminder(request)}
+                                >
+                                    🔔 {request.dueReminderSent ? 'ส่งเมลเตือนซ้ำ' : 'ส่งเมลเตือน 1 ชม.'}
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                     {request.status === 'rejected' && request.rejectReason && (
                         <div className="alert alert-error" style={{ margin: '1rem 0' }}>
@@ -64,6 +101,56 @@ export default function RequestDetailModal({
                             </div>
                         </div>
                     )}
+
+                    {/* ตารางแสดงรายการครุภัณฑ์ (รองรับหลายชิ้น) */}
+                    {hasMultiItems ? (
+                        <div className="detail-section" style={{ margin: '1rem 0' }}>
+                            <h4>📦 รายการครุภัณฑ์ที่ยืม ({request.items.length} รายการ, รวม {totalQty} ชิ้น)</h4>
+                            <div className="detail-items-table-wrapper">
+                                <table className="detail-items-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>ครุภัณฑ์</th>
+                                            <th>หมวดหมู่</th>
+                                            <th>รหัส SN</th>
+                                            <th style={{ textAlign: 'center' }}>จำนวน</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {request.items.map((it, idx) => (
+                                            <tr key={it.equipmentId || idx}>
+                                                <td>{idx + 1}</td>
+                                                <td>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {it.imageUrl ? (
+                                                            <img src={it.imageUrl} alt={it.equipmentName} className="detail-item-thumb" />
+                                                        ) : (
+                                                            <span style={{ fontSize: '1.25rem' }}>📦</span>
+                                                        )}
+                                                        <strong>{it.equipmentName}</strong>
+                                                    </div>
+                                                </td>
+                                                <td><span className="card-category-sm">{it.equipmentCategory || '-'}</span></td>
+                                                <td><code style={{ fontSize: '0.85rem' }}>{it.equipmentSerial || '-'}</code></td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <span className="badge-qty" style={{ fontSize: '0.9rem' }}>{it.quantity} ชิ้น</span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colSpan="4" style={{ textAlign: 'right', fontWeight: 700 }}>รวมทั้งหมด:</td>
+                                            <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--primary)' }}>
+                                                {totalQty} ชิ้น
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    ) : null}
 
                     <div className="detail-grid">
                         <div className="detail-section">
@@ -130,23 +217,25 @@ export default function RequestDetailModal({
                         </div>
 
                         <div className="detail-section">
-                            <h4>📦 รายละเอียดการยืม</h4>
-                            <div className="detail-row">
-                                <span className="detail-label">จำนวนที่ยืม:</span>
-                                <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{request.quantity} ชิ้น</span>
-                            </div>
+                            <h4>📅 ข้อมูลเวลาและสถานที่</h4>
+                            {!hasMultiItems && (
+                                <div className="detail-row">
+                                    <span className="detail-label">จำนวนที่ยืม:</span>
+                                    <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{request.quantity} ชิ้น</span>
+                                </div>
+                            )}
                             <div className="detail-row">
                                 <span className="detail-label">สถานที่ใช้งาน:</span>
                                 <span>{request.location || '-'}</span>
                             </div>
                             <div className="detail-row">
                                 <span className="detail-label">วันที่ยืม:</span>
-                                <span style={{ fontWeight: 500 }}>{formatDate(request.borrowDate)}</span>
+                                <span style={{ fontWeight: 500 }}>{formatDate(request.borrowDate, true)}</span>
                             </div>
                             <div className="detail-row">
                                 <span className="detail-label">กำหนดคืน:</span>
                                 <span style={{ color: overdue ? 'var(--status-rejected)' : 'var(--primary-dark)', fontWeight: 600 }}>
-                                    {formatDate(request.returnDate)}
+                                    {formatDate(request.returnDate, true)}
                                 </span>
                             </div>
                             {durationText && (
@@ -182,6 +271,14 @@ export default function RequestDetailModal({
                                     </div>
                                 </li>
                             )}
+                            {request.dueReminderSent && (
+                                <li>
+                                    <span className="timeline-dot" style={{ backgroundColor: '#f59e0b' }}></span>
+                                    <div>
+                                        <strong>ส่งอีเมลเตือนส่งคืน (ก่อน 1 ชม.):</strong> {request.dueReminderSentAt ? formatDate(request.dueReminderSentAt, true) : 'ส่งแล้ว'}
+                                    </div>
+                                </li>
+                            )}
                             {request.rejectedDate && (
                                 <li>
                                     <span className="timeline-dot timeline-dot-danger"></span>
@@ -214,7 +311,7 @@ export default function RequestDetailModal({
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            ✉️ ส่งอีเมลหานิสิต
+                            ✉️ ส่งอีเมลหาผู้ยืม
                         </a>
                     </div>
                     <div className="modal-footer-primary-actions">

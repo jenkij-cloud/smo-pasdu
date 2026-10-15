@@ -22,7 +22,7 @@ import EquipmentFormModal from '../components/EquipmentFormModal';
 import EmailWebhookModal from '../components/EmailWebhookModal';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { formatDate, isOverdue, formatDateTimeRange, getOverdueText } from '../utils/dateUtils';
+import { formatDate, isOverdue, formatDateTimeRange, getOverdueText, isDueSoon, getDueSoonText } from '../utils/dateUtils';
 import { sendBorrowNotification, getStudentEmail, createMailtoUrl, OFFICIAL_SENDER_EMAIL } from '../utils/notificationService';
 
 export default function AdminDashboard() {
@@ -101,6 +101,7 @@ export default function AdminDashboard() {
         return {
             pending: requests.filter(r => r.status === 'pending').length,
             approved: requests.filter(r => r.status === 'approved' && !isOverdue(r)).length,
+            dueSoon: requests.filter(r => isDueSoon(r)).length,
             rejected: requests.filter(r => r.status === 'rejected').length,
             returned: requests.filter(r => r.status === 'returned').length,
             overdue: requests.filter(r => isOverdue(r)).length
@@ -113,6 +114,7 @@ export default function AdminDashboard() {
             const matchesStatus =
                 statusFilter === 'all' ? true :
                 statusFilter === 'overdue' ? isOverdue(r) :
+                statusFilter === 'due_soon' ? isDueSoon(r) :
                 r.status === statusFilter;
 
             if (!matchesStatus) return false;
@@ -130,6 +132,7 @@ export default function AdminDashboard() {
                 (studentEmail && studentEmail.includes(kw)) ||
                 (r.phone && r.phone.toLowerCase().includes(kw)) ||
                 (r.equipmentName && r.equipmentName.toLowerCase().includes(kw)) ||
+                (r.items && Array.isArray(r.items) && r.items.some(it => it.equipmentName && it.equipmentName.toLowerCase().includes(kw))) ||
                 (r.location && r.location.toLowerCase().includes(kw))
             );
         });
@@ -142,7 +145,7 @@ export default function AdminDashboard() {
         return filteredRequests.slice(start, start + itemsPerPage);
     }, [filteredRequests, currentPage, itemsPerPage]);
 
-    // Status Change with Transaction (Safe from double clicking / race condition)
+    // Status Change with Transaction (Safe from double clicking / race condition & multi-items)
     const handleStatusChange = async (requestId, newStatus, additionalData = {}) => {
         try {
             await runTransaction(db, async (transaction) => {
@@ -160,14 +163,33 @@ export default function AdminDashboard() {
                     currentData.status !== 'returned' &&
                     currentData.status !== 'rejected') {
 
-                    const equipRef = doc(db, 'equipments', currentData.equipmentId);
-                    const equipDoc = await transaction.get(equipRef);
+                    // กรณีมีหลายครุภัณฑ์ในคำขอเดียว (Multi-items)
+                    if (currentData.items && Array.isArray(currentData.items) && currentData.items.length > 0) {
+                        const equipUpdates = [];
+                        for (const item of currentData.items) {
+                            const equipRef = doc(db, 'equipments', item.equipmentId);
+                            const equipDoc = await transaction.get(equipRef);
+                            if (equipDoc.exists()) {
+                                equipUpdates.push({
+                                    ref: equipRef,
+                                    newQuantity: (equipDoc.data().quantity || 0) + (item.quantity || 1)
+                                });
+                            }
+                        }
+                        for (const u of equipUpdates) {
+                            transaction.update(u.ref, { quantity: u.newQuantity });
+                        }
+                    } else if (currentData.equipmentId) {
+                        // กรณีคำขอเดิม (Single Item)
+                        const equipRef = doc(db, 'equipments', currentData.equipmentId);
+                        const equipDoc = await transaction.get(equipRef);
 
-                    if (equipDoc.exists()) {
-                        const currentQty = equipDoc.data().quantity || 0;
-                        transaction.update(equipRef, {
-                            quantity: currentQty + (currentData.quantity || 1)
-                        });
+                        if (equipDoc.exists()) {
+                            const currentQty = equipDoc.data().quantity || 0;
+                            transaction.update(equipRef, {
+                                quantity: currentQty + (currentData.quantity || 1)
+                            });
+                        }
                     }
                 }
 
@@ -184,7 +206,6 @@ export default function AdminDashboard() {
             });
 
             const targetReq = requests.find(r => r.id === requestId);
-            const targetEmail = targetReq?.studentEmail || getStudentEmail(targetReq?.studentId);
 
             toast.success(`อัปเดตสถานะเป็น "${newStatus === 'approved' ? 'อนุมัติ' : newStatus === 'rejected' ? 'ปฏิเสธ' : 'คืนแล้ว'}" เรียบร้อยแล้ว`);
 
@@ -205,11 +226,61 @@ export default function AdminDashboard() {
         }
     };
 
+    // ส่งอีเมลแจ้งเตือนใกล้ถึงกำหนดคืน (ก่อน 1 ชั่วโมง)
+    const handleSendDueReminder = async (request) => {
+        try {
+            await sendBorrowNotification({
+                type: 'STATUS_DUE_SOON',
+                data: request
+            });
+            await updateDoc(doc(db, 'borrowRequests', request.id), {
+                dueReminderSent: true,
+                dueReminderSentAt: serverTimestamp()
+            });
+            const targetEmail = request.studentEmail || request.borrowerEmail || request.contactEmail || getStudentEmail(request.studentId);
+            toast.success(`ส่งอีเมลแจ้งเตือนส่งคืน (ก่อน 1 ชม.) ไปยัง ${targetEmail} สำเร็จ! 🔔`);
+        } catch (err) {
+            console.error('Error sending due reminder:', err);
+            toast.error('ไม่สามารถส่งอีเมลแจ้งเตือนได้');
+        }
+    };
+
+    // ตรวจสอบและส่งอีเมลแจ้งเตือนอัตโนมัติเมื่อใกล้ถึงกำหนดคืน 1 ชม. (Auto Reminder Scanner)
+    useEffect(() => {
+        if (!user || requests.length === 0) return;
+
+        const scanAndSendDueReminders = async () => {
+            const needReminderList = requests.filter(r => r.status === 'approved' && isDueSoon(r) && !r.dueReminderSent);
+            for (const req of needReminderList) {
+                try {
+                    console.log(`[Auto Reminder] Triggering 1-hour before due notification for request ${req.id}`);
+                    await sendBorrowNotification({
+                        type: 'STATUS_DUE_SOON',
+                        data: req
+                    });
+                    await updateDoc(doc(db, 'borrowRequests', req.id), {
+                        dueReminderSent: true,
+                        dueReminderSentAt: serverTimestamp()
+                    });
+                    const targetEmail = req.studentEmail || req.borrowerEmail || req.contactEmail || getStudentEmail(req.studentId);
+                    toast.info(`⏰ ส่งอีเมลเตือนส่งคืน (ก่อน 1 ชม.) ถึง ${targetEmail} อัตโนมัติ`);
+                } catch (e) {
+                    console.error('Auto reminder error:', e);
+                }
+            }
+        };
+
+        scanAndSendDueReminders();
+        const intervalId = setInterval(scanAndSendDueReminders, 60000); // ตรวจสอบทุกๆ 1 นาที
+        return () => clearInterval(intervalId);
+    }, [requests, user, toast]);
+
     // Rejection confirmation handler
     const handleConfirmReject = async (reason) => {
         if (!rejectingRequest) return;
         await handleStatusChange(rejectingRequest.id, 'rejected', { rejectReason: reason });
     };
+
 
     // Equipment Submission
     const handleEquipmentSubmit = async (data, equipmentId) => {
@@ -447,6 +518,19 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                             )}
+                            {stats.dueSoon > 0 && (
+                                <div
+                                    className={`stat-card duesoon ${statusFilter === 'due_soon' ? 'active-stat' : ''}`}
+                                    onClick={() => { setStatusFilter(statusFilter === 'due_soon' ? 'all' : 'due_soon'); setCurrentPage(1); }}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <div className="stat-icon">⏰</div>
+                                    <div className="stat-info">
+                                        <h4>ใกล้ถึงกำหนด (1 ชม.)</h4>
+                                        <div className="stat-number">{stats.dueSoon}</div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Search & Filter Toolbar */}
@@ -490,7 +574,16 @@ export default function AdminDashboard() {
                                         🔥 เกินกำหนด ({stats.overdue})
                                     </button>
                                 )}
+                                {stats.dueSoon > 0 && (
+                                    <button
+                                        className={`filter-tab filter-tab-duesoon ${statusFilter === 'due_soon' ? 'active' : ''}`}
+                                        onClick={() => { setStatusFilter('due_soon'); setCurrentPage(1); }}
+                                    >
+                                        ⏰ ใกล้ถึงกำหนด ({stats.dueSoon})
+                                    </button>
+                                )}
                             </div>
+
 
                             <div className="admin-search-wrapper">
                                 <span className="search-icon">🔍</span>
@@ -583,10 +676,24 @@ export default function AdminDashboard() {
                                                         </div>
                                                     </td>
                                                     <td>
-                                                        <strong>{request.equipmentName}</strong>
-                                                        <div className="cell-subtext">
-                                                            จำนวน: <span className="badge-qty">{request.quantity}</span> ชิ้น
-                                                        </div>
+                                                        {request.items && Array.isArray(request.items) && request.items.length > 1 ? (
+                                                            <div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                                    <span className="badge-multi-items">📦 {request.items.length} รายการ</span>
+                                                                    <span className="badge-qty">รวม {request.totalQuantity || request.quantity} ชิ้น</span>
+                                                                </div>
+                                                                <div className="cell-subtext" style={{ marginTop: '4px', color: 'var(--text-primary)', fontSize: '0.825rem' }}>
+                                                                    {request.items.map(it => `${it.equipmentName} (${it.quantity})`).join(', ')}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div>
+                                                                <strong>{request.equipmentName}</strong>
+                                                                <div className="cell-subtext">
+                                                                    จำนวน: <span className="badge-qty">{request.quantity}</span> ชิ้น
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td>{request.location || '-'}</td>
                                                     <td>
@@ -620,6 +727,12 @@ export default function AdminDashboard() {
                                                                 🔥 {getOverdueText(request) || 'เกินกำหนด'}
                                                             </div>
                                                         )}
+                                                        {isDueSoon(request) && !overdue && (
+                                                            <div style={{ color: '#d97706', fontSize: '0.75rem', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                ⏰ {getDueSoonText(request)} (ใกล้กำหนด)
+                                                                {request.dueReminderSent && <span title="ส่งอีเมลเตือนส่งคืนแล้ว">✅</span>}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td>
                                                         <StatusBadge status={overdue ? 'overdue' : request.status} />
@@ -638,6 +751,17 @@ export default function AdminDashboard() {
                                                             >
                                                                 👁️ ดู
                                                             </button>
+
+                                                            {request.status === 'approved' && isDueSoon(request) && (
+                                                                <button
+                                                                    type="button"
+                                                                    className={`btn btn-sm ${request.dueReminderSent ? 'btn-secondary' : 'btn-warning'}`}
+                                                                    onClick={() => handleSendDueReminder(request)}
+                                                                    title={request.dueReminderSent ? 'ส่งอีเมลเตือนซ้ำอีกครั้ง' : 'ส่งอีเมลแจ้งเตือนใกล้ถึงกำหนดคืน (ก่อน 1 ชม.)'}
+                                                                >
+                                                                    {request.dueReminderSent ? '🔔 เตือนแล้ว' : '🔔 เตือน 1 ชม.'}
+                                                                </button>
+                                                            )}
 
                                                             {overdue && (
                                                                 <a
@@ -676,6 +800,7 @@ export default function AdminDashboard() {
                                                             )}
                                                         </div>
                                                     </td>
+
                                                 </tr>
                                             );
                                         })}
@@ -713,7 +838,18 @@ export default function AdminDashboard() {
                                                 <div className="mobile-req-card-details">
                                                     <div className="mobile-req-detail-row">
                                                         <span className="mobile-req-label">📦 ครุภัณฑ์</span>
-                                                        <span className="mobile-req-value"><strong>{request.equipmentName}</strong> ×{request.quantity}</span>
+                                                        <span className="mobile-req-value">
+                                                            {request.items && Array.isArray(request.items) && request.items.length > 1 ? (
+                                                                <span>
+                                                                    <strong>{request.items.length} รายการ (รวม {request.totalQuantity || request.quantity} ชิ้น)</strong>
+                                                                    <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                                                        {request.items.map(it => `${it.equipmentName} ×${it.quantity}`).join(', ')}
+                                                                    </span>
+                                                                </span>
+                                                            ) : (
+                                                                <span><strong>{request.equipmentName}</strong> ×{request.quantity}</span>
+                                                            )}
+                                                        </span>
                                                     </div>
                                                     {request.location && (
                                                         <div className="mobile-req-detail-row">
@@ -739,6 +875,11 @@ export default function AdminDashboard() {
                                                             🔥 {getOverdueText(request) || 'เกินกำหนดคืน'}
                                                         </div>
                                                     )}
+                                                    {isDueSoon(request) && !overdue && (
+                                                        <div className="mobile-req-duesoon-badge">
+                                                            ⏰ ใกล้ถึงกำหนดคืน ({getDueSoonText(request)}) {request.dueReminderSent ? '✅ ส่งเตือนแล้ว' : ''}
+                                                        </div>
+                                                    )}
                                                     {request.status === 'rejected' && request.rejectReason && (
                                                         <div className="mobile-req-reject-reason">
                                                             💬 {request.rejectReason}
@@ -754,6 +895,16 @@ export default function AdminDashboard() {
                                                         👁️ ดูรายละเอียด
                                                     </button>
 
+                                                    {request.status === 'approved' && isDueSoon(request) && (
+                                                        <button
+                                                            type="button"
+                                                            className={`btn btn-sm mobile-action-btn ${request.dueReminderSent ? 'btn-secondary' : 'btn-warning'}`}
+                                                            onClick={() => handleSendDueReminder(request)}
+                                                        >
+                                                            {request.dueReminderSent ? '🔔 เตือนแล้ว (ส่งซ้ำ)' : '🔔 เตือน 1 ชม.'}
+                                                        </button>
+                                                    )}
+
                                                     {overdue && (
                                                         <a
                                                             href={createMailtoUrl('overdue', request)}
@@ -762,6 +913,7 @@ export default function AdminDashboard() {
                                                             ✉️ ส่งเตือน
                                                         </a>
                                                     )}
+
 
                                                     {request.status === 'pending' && (
                                                         <>
@@ -1013,6 +1165,7 @@ export default function AdminDashboard() {
                     onApprove={(r) => handleStatusChange(r.id, 'approved')}
                     onReject={(r) => setRejectingRequest(r)}
                     onReturn={(r) => handleStatusChange(r.id, 'returned')}
+                    onSendDueReminder={handleSendDueReminder}
                 />
             )}
 

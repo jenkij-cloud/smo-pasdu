@@ -21,6 +21,8 @@ export default function UserPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [selectedEquipment, setSelectedEquipment] = useState(null);
+    const [isCartModalOpen, setIsCartModalOpen] = useState(false);
+    const [cart, setCart] = useState([]);
     const [categories, setCategories] = useState([]);
 
     useEffect(() => {
@@ -53,33 +55,81 @@ export default function UserPage() {
         return matchSearch && matchCategory;
     });
 
+    // เพิ่ม/ลบ ครุภัณฑ์ในตะกร้า/รายการยืมร่วม
+    const handleToggleCart = (equipment) => {
+        setCart(prev => {
+            const exists = prev.some(item => item.id === equipment.id);
+            if (exists) {
+                return prev.filter(item => item.id !== equipment.id);
+            } else {
+                return [...prev, equipment];
+            }
+        });
+    };
+
+    // เมื่อกด "ยื่นคำขอยืม" ที่การ์ดโดยตรง
+    const handleDirectBorrow = (equipment) => {
+        // หากมีรายการในตะกร้าและยังไม่มีชิ้นนี้ ให้รวมชิ้นนี้เข้าไปด้วย
+        if (cart.length > 0 && !cart.some(item => item.id === equipment.id)) {
+            setCart(prev => [...prev, equipment]);
+            setIsCartModalOpen(true);
+        } else if (cart.length > 0) {
+            setIsCartModalOpen(true);
+        } else {
+            setSelectedEquipment(equipment);
+        }
+    };
+
     const handleBorrowSubmit = async (data) => {
         try {
-            // ป้องกัน Race Condition ด้วย Firestore runTransaction
+            const items = data.items && Array.isArray(data.items) && data.items.length > 0
+                ? data.items
+                : [{
+                    equipmentId: data.equipmentId,
+                    equipmentName: data.equipmentName,
+                    quantity: data.quantity || 1
+                }];
+
+            // ป้องกัน Race Condition ด้วย Firestore runTransaction (อ่านทุกชิ้นก่อน แล้วเขียนพร้อมกัน)
             await runTransaction(db, async (transaction) => {
-                const equipmentRef = doc(db, 'equipments', data.equipmentId);
-                const equipmentDoc = await transaction.get(equipmentRef);
+                const equipUpdates = [];
 
-                if (!equipmentDoc.exists()) {
-                    throw new Error('ไม่พบข้อมูลครุภัณฑ์นี้ในระบบ');
+                // 1. อ่านและตรวจสอบสต็อกของทุกชิ้นก่อน (Reads MUST precede writes)
+                for (const item of items) {
+                    const equipmentRef = doc(db, 'equipments', item.equipmentId);
+                    const equipmentDoc = await transaction.get(equipmentRef);
+
+                    if (!equipmentDoc.exists()) {
+                        throw new Error(`ไม่พบข้อมูลครุภัณฑ์ "${item.equipmentName}" ในระบบ`);
+                    }
+
+                    const currentStock = equipmentDoc.data().quantity || 0;
+                    if (currentStock < item.quantity) {
+                        throw new Error(`ขออภัย "${item.equipmentName}" คงเหลือเพียง ${currentStock} ชิ้น ไม่พอสำหรับจำนวนที่ต้องการยืม (${item.quantity} ชิ้น)`);
+                    }
+
+                    equipUpdates.push({
+                        ref: equipmentRef,
+                        newQuantity: currentStock - item.quantity
+                    });
                 }
 
-                const currentStock = equipmentDoc.data().quantity || 0;
-                if (currentStock < data.quantity) {
-                    throw new Error(`ขออภัย ครุภัณฑ์นี้คงเหลือเพียง ${currentStock} ชิ้น ไม่พอสำหรับจำนวนที่ต้องการยืม`);
-                }
-
-                // 1. บันทึกใบคำขอ
+                // 2. บันทึกใบคำขอ
                 const newRequestRef = doc(collection(db, 'borrowRequests'));
                 transaction.set(newRequestRef, data);
 
-                // 2. ตัดสต็อกอย่างปลอดภัย
-                transaction.update(equipmentRef, {
-                    quantity: currentStock - data.quantity
-                });
+                // 3. ตัดสต็อกของแต่ละชิ้นอย่างปลอดภัย
+                for (const u of equipUpdates) {
+                    transaction.update(u.ref, {
+                        quantity: u.newQuantity
+                    });
+                }
             });
 
             toast.success('🎉 ส่งคำขอยืมครุภัณฑ์เรียบร้อยแล้ว!');
+            setCart([]); // ล้างตะกร้าเมื่อส่งสำเร็จ
+            setSelectedEquipment(null);
+            setIsCartModalOpen(false);
 
             // ส่งการแจ้งเตือน
             sendBorrowNotification({
@@ -89,7 +139,7 @@ export default function UserPage() {
 
         } catch (error) {
             console.error("เกิดข้อผิดพลาดในการยืม:", error);
-            const errorMsg = error.message.includes('ขออภัย')
+            const errorMsg = error.message.includes('ขออภัย') || error.message.includes('ไม่พบข้อมูล')
                 ? error.message
                 : 'เกิดข้อผิดพลาดในการส่งคำขอ กรุณาลองใหม่อีกครั้ง';
             toast.error(errorMsg);
@@ -100,10 +150,10 @@ export default function UserPage() {
     return (
         <>
             <Header />
-            <main className="main-container">
+            <main className={`main-container ${cart.length > 0 ? 'has-cart-bar' : ''}`}>
                 <div className="page-header">
                     <h2>📦 รายการครุภัณฑ์สโมสรนิสิต</h2>
-                    <p>ค้นหา เลือกดูรายละเอียด และยื่นคำขอยืมครุภัณฑ์ออนไลน์ได้ทันที</p>
+                    <p>ค้นหา เลือกดูรายละเอียด และยื่นคำขอยืมครุภัณฑ์ออนไลน์ได้ทันที (สามารถเลือกยืมได้ครั้งละหลายชิ้น/หลายรายการ)</p>
                 </div>
 
                 <div className="search-section">
@@ -146,21 +196,74 @@ export default function UserPage() {
                     </div>
                 ) : (
                     <div className="cards-container">
-                        {filteredEquipments.map(equipment => (
-                            <EquipmentCard
-                                key={equipment.id}
-                                equipment={equipment}
-                                onBorrow={setSelectedEquipment}
-                            />
-                        ))}
+                        {filteredEquipments.map(equipment => {
+                            const isInCart = cart.some(item => item.id === equipment.id);
+                            return (
+                                <EquipmentCard
+                                    key={equipment.id}
+                                    equipment={equipment}
+                                    isInCart={isInCart}
+                                    onToggleCart={handleToggleCart}
+                                    onBorrow={handleDirectBorrow}
+                                />
+                            );
+                        })}
                     </div>
                 )}
             </main>
 
-            {selectedEquipment && (
+            {/* แถบแจ้งเตือนตะกร้าลอยด้านล่างเมื่อมีการเลือกหลายชิ้น */}
+            {cart.length > 0 && (
+                <div className="floating-cart-bar">
+                    <div className="floating-cart-content">
+                        <div className="floating-cart-info">
+                            <span className="floating-cart-icon">🛒</span>
+                            <div>
+                                <div className="floating-cart-title">
+                                    รายการครุภัณฑ์ที่เลือกไว้: <strong>{cart.length} รายการ</strong>
+                                </div>
+                                <div className="floating-cart-names">
+                                    {cart.map(c => c.name).join(', ')}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="floating-cart-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setCart([])}
+                                title="ล้างรายการที่เลือกทั้งหมด"
+                            >
+                                ✕ ล้างรายการ
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => setIsCartModalOpen(true)}
+                            >
+                                📋 ยื่นขอยืม ({cart.length} รายการ) ➔
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal ยืมสำหรับชิ้นเดียวที่กด */}
+            {selectedEquipment && !isCartModalOpen && (
                 <BorrowFormModal
                     equipment={selectedEquipment}
+                    allEquipments={equipments}
                     onClose={() => setSelectedEquipment(null)}
+                    onSubmit={handleBorrowSubmit}
+                />
+            )}
+
+            {/* Modal ยืมสำหรับรายการในตะกร้า (หลายชิ้น) */}
+            {isCartModalOpen && (
+                <BorrowFormModal
+                    initialItems={cart}
+                    allEquipments={equipments}
+                    onClose={() => setIsCartModalOpen(false)}
                     onSubmit={handleBorrowSubmit}
                 />
             )}
