@@ -124,7 +124,7 @@ export default function FacultySelect({
                             </span>
                             {selectedItem?.isOwner && (
                                 <span className="faculty-owner-badge">
-                                    <span className="badge-dot"></span> สโมสรนิสิต วท.ด. (เจ้าของระบบ)
+                                    <span className="badge-dot"></span>(เจ้าของระบบ)
                                 </span>
                             )}
                         </div>
@@ -233,11 +233,6 @@ export default function FacultySelect({
                                                         </span>
                                                         <div className="faculty-item-info-col">
                                                             <span className="faculty-item-name">{fac.name}</span>
-                                                            {fac.isOwner && (
-                                                                <span className="faculty-owner-badge-sm">
-                                                                    สโมสรนิสิต วท.ด.
-                                                                </span>
-                                                            )}
                                                         </div>
                                                     </div>
                                                     {isSelected && (
