@@ -406,11 +406,11 @@ export default function AdminDashboard() {
         return { headers, rows };
     };
 
-    // Export Microsoft Excel (.xlsx) แท้ 100% เปิดใช้งานได้ทุกอุปกรณ์ ไม่มีแจ้งเตือนไฟล์เสียหาย
+    // Export Microsoft Excel (.xlsx) แท้ 100% เปิดใช้งานได้ทุกอุปกรณ์
     const exportToExcel = () => {
         const dataToExport = filteredRequests;
-        if (dataToExport.length === 0) {
-            toast.warning('ไม่มีข้อมูลสำหรับ Export');
+        if (!dataToExport || dataToExport.length === 0) {
+            toast.warning('ไม่มีข้อมูลสำหรับ Export (ลองเลือกแท็บ "ทั้งหมด" หรือล้างคำค้นหา)');
             return;
         }
 
@@ -446,33 +446,34 @@ export default function AdminDashboard() {
 
             XLSX.utils.book_append_sheet(wb, ws, 'ประวัติการยืมครุภัณฑ์');
             const filename = `SMO_BorrowReport_${new Date().toISOString().split('T')[0]}.xlsx`;
-            XLSX.writeFile(wb, filename);
-            toast.success('ดาวน์โหลดไฟล์ Excel (.xlsx) สำเร็จ! เปิดใช้งานได้สมบูรณ์ 100%');
+
+            // ใช้ ArrayBuffer + Blob ดาวน์โหลดเพื่อความเสถียรสูงสุดบนทุกเบราว์เซอร์และมือถือ
+            const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('ดาวน์โหลดไฟล์ Excel (.xlsx) สำเร็จเรียบร้อยแล้ว!');
         } catch (error) {
             console.error('Export Excel failed:', error);
-            toast.error('เกิดข้อผิดพลาดในการสร้างไฟล์ Excel: ' + (error?.message || ''));
-        }
-    };
-
-    // Export CSV มาตรฐานพร้อม UTF-8 BOM สำหรับเปิดใน Excel ได้ภาษาไทยไม่เพี้ยน
-    const exportToCSV = () => {
-        const dataToExport = filteredRequests;
-        if (dataToExport.length === 0) {
-            toast.warning('ไม่มีข้อมูลสำหรับ Export');
-            return;
-        }
-
-        try {
-            const { headers, rows } = generateExportData(dataToExport);
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-            XLSX.utils.book_append_sheet(wb, ws, 'BorrowReport');
-            const filename = `SMO_BorrowReport_${new Date().toISOString().split('T')[0]}.csv`;
-            XLSX.writeFile(wb, filename, { bookType: 'csv' });
-            toast.success('ดาวน์โหลดรายงาน CSV สำเร็จ!');
-        } catch (error) {
-            console.error('Export CSV failed:', error);
-            toast.error('เกิดข้อผิดพลาดในการสร้างไฟล์ CSV: ' + (error?.message || ''));
+            // Fallback ไปใช้ XLSX.writeFile ดั้งเดิม
+            try {
+                const { headers, rows } = generateExportData(dataToExport);
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+                XLSX.utils.book_append_sheet(wb, ws, 'ประวัติการยืมครุภัณฑ์');
+                XLSX.writeFile(wb, `SMO_BorrowReport_${new Date().toISOString().split('T')[0]}.xlsx`);
+                toast.success('ดาวน์โหลดไฟล์ Excel สำเร็จ!');
+            } catch (err2) {
+                toast.error('เกิดข้อผิดพลาดในการสร้างไฟล์ Excel: ' + (error?.message || err2?.message || ''));
+            }
         }
     };
 
@@ -527,14 +528,6 @@ export default function AdminDashboard() {
                             style={{ background: '#107c41', borderColor: '#107c41', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         >
                             📊 Export Excel (.xlsx)
-                        </button>
-                        <button
-                            className="btn btn-secondary admin-action-btn"
-                            onClick={exportToCSV}
-                            title="ดาวน์โหลดไฟล์ CSV (UTF-8 BOM รองรับภาษาไทย เปิดใน Excel ได้ทันที)"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                        >
-                            📄 Export CSV
                         </button>
                     </div>
                 </div>
