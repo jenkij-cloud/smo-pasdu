@@ -1597,8 +1597,9 @@ body {
   }
 
   .modal-body {
-    padding: 1rem 1.25rem;
+    padding: 0.85rem 1rem;
     overflow-y: auto;
+    overflow-x: hidden;
     flex: 1;
     -webkit-overflow-scrolling: touch;
   }
@@ -1607,7 +1608,7 @@ body {
     position: sticky;
     bottom: 0;
     z-index: 10;
-    padding: 0.85rem 1.25rem;
+    padding: 0.85rem 1rem;
     padding-bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
     background: rgba(248, 250, 252, 0.96);
     backdrop-filter: blur(8px);
@@ -1624,8 +1625,103 @@ body {
   .form-input,
   .form-select,
   .form-textarea {
-    font-size: 16px; /* Prevents auto zoom */
+    font-size: 16px; /* Prevents auto zoom on mobile */
     padding: 0.7rem 0.875rem;
+  }
+
+  /* Schedule Card mobile responsiveness */
+  .schedule-card-box {
+    padding: 0.85rem 0.75rem;
+    border-radius: 14px;
+    margin-bottom: 0.65rem;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .schedule-header-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .btn-sync-time {
+    width: 100%;
+    justify-content: center;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.82rem;
+  }
+
+  .schedule-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .schedule-subcard {
+    padding: 0.75rem 0.65rem;
+    border-radius: 12px;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .schedule-inputs-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .visual-days-container {
+    padding: 0.5rem 0.45rem;
+    border-radius: 10px;
+    margin-bottom: 0.65rem;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .visual-days-scroll {
+    gap: 0.35rem;
+    padding-bottom: 0.35rem;
+  }
+
+  .visual-day-card {
+    min-width: 48px;
+    padding: 0.35rem 0.2rem;
+    border-radius: 8px;
+  }
+
+  .vday-name {
+    font-size: 0.65rem;
+  }
+
+  .vday-num {
+    font-size: 0.95rem;
+    margin: 0.1rem 0;
+  }
+
+  .vday-tag {
+    font-size: 0.6rem;
+  }
+
+  .form-input-decorated {
+    font-size: 16px; /* Prevents auto zoom */
+    padding: 0.65rem 0.75rem;
+  }
+
+  .preset-chips,
+  .quick-time-chips {
+    gap: 0.3rem;
+  }
+
+  .preset-chip,
+  .quick-time-chip {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.72rem;
+  }
+
+  .duration-pill {
+    padding: 0.55rem 0.75rem;
+    font-size: 0.78rem;
+    border-radius: 10px;
   }
 
   /* Status Check Page */
@@ -2486,6 +2582,9 @@ body {
   padding: 1.15rem 1.25rem;
   margin-bottom: 0.75rem;
   box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .schedule-header-wrapper {
@@ -2587,6 +2686,9 @@ body {
   padding: 0.95rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
   transition: all 0.2s ease;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .schedule-subcard.borrow-subcard {
@@ -2640,9 +2742,10 @@ body {
   margin-bottom: 0.5rem;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .schedule-inputs-row {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 }
 
@@ -2693,6 +2796,9 @@ body {
   border-radius: 12px;
   padding: 0.65rem 0.75rem;
   margin-bottom: 0.75rem;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .visual-days-header {
