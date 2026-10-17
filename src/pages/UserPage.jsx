@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import {
     collection,
@@ -14,12 +14,28 @@ import BorrowFormModal from '../components/BorrowFormModal';
 import { useToast } from '../context/ToastContext';
 import { sendBorrowNotification } from '../utils/notificationService';
 
+// ฟังก์ชันจับคู่อีโมจิ/ไอคอนให้เข้ากับหมวดหมู่ต่างๆ
+export const getCategoryIcon = (category) => {
+    if (!category || category === 'all') return '📁';
+    const lower = category.toLowerCase();
+    if (lower.includes('กีฬา') || lower.includes('sport')) return '⚽';
+    if (lower.includes('วัสดุ') || lower.includes('อุปกรณ์') || lower.includes('เครื่องมือ')) return '📦';
+    if (lower.includes('ตรา') || lower.includes('สัญลักษณ์') || lower.includes('ป้าย')) return '🏅';
+    if (lower.includes('สื่อสาร') || lower.includes('วิทยุ') || lower.includes('ไมค์')) return '📻';
+    if (lower.includes('คอม') || lower.includes('ไอที') || lower.includes('it') || lower.includes('โน้ตบุ๊ก')) return '💻';
+    if (lower.includes('กล้อง') || lower.includes('ถ่ายภาพ')) return '📷';
+    if (lower.includes('เอกสาร') || lower.includes('หนังสือ')) return '📄';
+    return '🏷️';
+};
+
 export default function UserPage() {
     const toast = useToast();
     const [equipments, setEquipments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
     const [selectedEquipment, setSelectedEquipment] = useState(null);
     const [isCartModalOpen, setIsCartModalOpen] = useState(false);
     const [cart, setCart] = useState([]);
@@ -47,6 +63,17 @@ export default function UserPage() {
         return unsubscribe;
     }, [toast]);
 
+    // ปิด Dropdown เมื่อคลิกข้างนอก
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const filteredEquipments = equipments.filter(item => {
         const matchSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -54,6 +81,12 @@ export default function UserPage() {
         const matchCategory = categoryFilter === 'all' || item.category === categoryFilter;
         return matchSearch && matchCategory;
     });
+
+    // ค้นหา Label และ Icon ปัจจุบันที่เลือกอยู่
+    const currentCategoryLabel = categoryFilter === 'all'
+        ? `ทุกหมวดหมู่ (${equipments.length})`
+        : `${categoryFilter} (${equipments.filter(e => e.category === categoryFilter).length})`;
+    const currentCategoryIcon = getCategoryIcon(categoryFilter);
 
     // เพิ่ม/ลบ ครุภัณฑ์ในตะกร้า/รายการยืมร่วม
     const handleToggleCart = (equipment) => {
@@ -168,18 +201,67 @@ export default function UserPage() {
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <select
-                            className="filter-select"
-                            value={categoryFilter}
-                            onChange={e => setCategoryFilter(e.target.value)}
-                        >
-                            <option value="all">📁 ทุกหมวดหมู่ ({equipments.length})</option>
-                            {categories.map(cat => (
-                                <option key={cat} value={cat}>
-                                    {cat} ({equipments.filter(e => e.category === cat).length})
-                                </option>
-                            ))}
-                        </select>
+                        <div className="filter-select-wrapper" ref={dropdownRef}>
+                            <button
+                                type="button"
+                                className={`custom-dropdown-btn ${isDropdownOpen ? 'is-open' : ''}`}
+                                onClick={() => setIsDropdownOpen(prev => !prev)}
+                                aria-expanded={isDropdownOpen}
+                                aria-haspopup="listbox"
+                            >
+                                <span className="selected-category-display">
+                                    <span className="cat-icon-emoji">{currentCategoryIcon}</span>
+                                    <span className="cat-text">{currentCategoryLabel}</span>
+                                </span>
+                                <span className="filter-select-arrow" aria-hidden="true">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </span>
+                            </button>
+
+                            {isDropdownOpen && (
+                                <div className="custom-dropdown-menu" role="listbox">
+                                    <button
+                                        type="button"
+                                        role="option"
+                                        aria-selected={categoryFilter === 'all'}
+                                        className={`custom-dropdown-item ${categoryFilter === 'all' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setCategoryFilter('all');
+                                            setIsDropdownOpen(false);
+                                        }}
+                                    >
+                                        <span className="item-icon">📁</span>
+                                        <span className="item-title">ทุกหมวดหมู่</span>
+                                        <span className="item-count-badge">{equipments.length}</span>
+                                    </button>
+
+                                    {categories.map(cat => {
+                                        const count = equipments.filter(e => e.category === cat).length;
+                                        const icon = getCategoryIcon(cat);
+                                        const isSelected = categoryFilter === cat;
+                                        return (
+                                            <button
+                                                key={cat}
+                                                type="button"
+                                                role="option"
+                                                aria-selected={isSelected}
+                                                className={`custom-dropdown-item ${isSelected ? 'active' : ''}`}
+                                                onClick={() => {
+                                                    setCategoryFilter(cat);
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                            >
+                                                <span className="item-icon">{icon}</span>
+                                                <span className="item-title">{cat}</span>
+                                                <span className="item-count-badge">{count}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
