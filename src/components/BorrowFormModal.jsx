@@ -285,13 +285,13 @@ export default function BorrowFormModal({
         return options;
     }, [formData.borrowDate, today]);
 
-    // ตั้งค่าเวลาปัจจุบันแบบ Real-time
+    // ตั้งค่ากลับเป็นวันนี้แบบ Real-time
     const syncToCurrentTime = () => {
         const nowTime = getLocalTimeString();
         setFormData(prev => {
             let nextReturnTime = prev.returnTime;
-            // ถ้าคืนวันเดียวกัน และเวลาคืนน้อยกว่าหรือเท่ากับเวลาใหม่ ให้ขยับเวลาคืนเป็น +2 ชม.
-            if (prev.returnDate === prev.borrowDate && nextReturnTime <= nowTime) {
+            // ถ้าคืนวันนี้ และเวลาคืนเดิมน้อยกว่าหรือเท่ากับเวลาปัจจุบัน ให้ขยับเวลาคืนเป็น +2 ชม.
+            if (prev.returnDate === today && nextReturnTime <= nowTime) {
                 const now = new Date();
                 const retDate = new Date(now.getTime() + 2 * 60 * 60 * 1000);
                 nextReturnTime = getLocalTimeString(retDate);
@@ -300,21 +300,20 @@ export default function BorrowFormModal({
                 ...prev,
                 borrowDate: today,
                 borrowTime: nowTime,
+                returnDate: prev.returnDate < today ? today : prev.returnDate,
                 returnTime: nextReturnTime
             };
         });
-        if (toast) toast.success(`⚡ ปรับเป็นเวลาปัจจุบัน (${nowTime} น.) เรียบร้อย`);
+        if (toast) toast.success(`⚡ ปรับเป็นยืมวันนี้เรียบร้อย`);
     };
 
     // ปรับเวลาคืนด่วน (+1, +2, +4 ชม.)
     const applyReturnTimeOffset = (hours) => {
-        const [bh, bm] = (formData.borrowTime || getLocalTimeString()).split(':').map(Number);
         const base = new Date();
-        base.setHours(bh, bm, 0, 0);
         const target = new Date(base.getTime() + hours * 60 * 60 * 1000);
         const nextTime = getLocalTimeString(target);
 
-        // ถ้าเวลาล้นข้ามวัน (เช่น 23:00 + 2 ชม. = 01:00)
+        // ถ้าเวลาล้นข้ามวัน
         if (target.getDate() !== base.getDate()) {
             const nextDay = addDaysLocal(formData.borrowDate || today, 1);
             if (nextDay <= maxReturnDate) {
@@ -325,7 +324,7 @@ export default function BorrowFormModal({
         }
     };
 
-    // จัดการเปลี่ยนวันที่ยืม พร้อมระบบ Auto-Clamp ป้องกันเลือดย้อนหลังหรือเกิน 7 วัน
+    // จัดการเปลี่ยนวันที่ยืม พร้อมระบบ Auto-Clamp ป้องกันเลือกย้อนหลังหรือเกิน 7 วัน
     const handleBorrowDateChange = (val) => {
         if (!val) return;
         let nextBorrowDate = val;
@@ -342,6 +341,9 @@ export default function BorrowFormModal({
             nextBorrowDate = maxBorrowDate;
         }
 
+        const nowTime = getLocalTimeString();
+        const nextBorrowTime = nextBorrowDate === today ? nowTime : '08:30';
+
         setFormData(prev => {
             const newMaxReturn = addDaysLocal(nextBorrowDate, MAX_BORROW_DAYS);
             let nextReturnDate = prev.returnDate;
@@ -354,18 +356,19 @@ export default function BorrowFormModal({
                 nextReturnDate = newMaxReturn;
             }
 
-            // ถ้าเป็นวันนี้ และเวลาที่ตั้งไว้น้อยกว่าเวลาปัจจุบัน -> ปรับเป็นเวลาปัจจุบัน
-            let nextBorrowTime = prev.borrowTime;
-            const nowTime = getLocalTimeString();
-            if (nextBorrowDate === today && nextBorrowTime < nowTime) {
-                nextBorrowTime = nowTime;
+            let nextReturnTime = prev.returnTime;
+            if (nextReturnDate === nextBorrowDate && nextReturnTime <= nextBorrowTime) {
+                const now = new Date();
+                const retDate = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+                nextReturnTime = getLocalTimeString(retDate);
             }
 
             return {
                 ...prev,
                 borrowDate: nextBorrowDate,
                 borrowTime: nextBorrowTime,
-                returnDate: nextReturnDate
+                returnDate: nextReturnDate,
+                returnTime: nextReturnTime
             };
         });
 
@@ -373,45 +376,6 @@ export default function BorrowFormModal({
             setErrors(prev => {
                 const copy = { ...prev };
                 delete copy.borrowDate;
-                delete copy.borrowTime;
-                return copy;
-            });
-        }
-    };
-
-    // จัดการเปลี่ยนเวลาที่ยืม พร้อมฟิกห้ามยืมเวลาย้อนหลังสำหรับวันนี้
-    const handleBorrowTimeChange = (val) => {
-        if (!val) return;
-        const nowTime = getLocalTimeString();
-
-        // ถ้าวันที่ยืมคือวันนี้ ห้ามเลือกเวลาย้อนหลังเด็ดขาด
-        if (formData.borrowDate === today && val < nowTime) {
-            if (toast) toast.warning(`ไม่สามารถยืมเวลาย้อนหลังได้ (เวลาปัจจุบันคือ ${nowTime} น.)`);
-            setFormData(prev => ({
-                ...prev,
-                borrowTime: nowTime
-            }));
-            return;
-        }
-
-        setFormData(prev => {
-            let nextReturnTime = prev.returnTime;
-            // ถ้าคืนวันเดียวกัน และเวลาคืนน้อยกว่าหรือเท่ากับเวลายืมใหม่
-            if (prev.returnDate === prev.borrowDate && nextReturnTime <= val) {
-                const [h, m] = val.split(':').map(Number);
-                const nextH = Math.min(23, h + 1);
-                nextReturnTime = `${String(nextH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-            }
-            return {
-                ...prev,
-                borrowTime: val,
-                returnTime: nextReturnTime
-            };
-        });
-
-        if (errors.borrowTime) {
-            setErrors(prev => {
-                const copy = { ...prev };
                 delete copy.borrowTime;
                 return copy;
             });
@@ -452,17 +416,17 @@ export default function BorrowFormModal({
     const handleReturnTimeChange = (val) => {
         if (!val) return;
         const nowTime = getLocalTimeString();
+        const effectiveBorrowTime = formData.borrowDate === today ? nowTime : (formData.borrowTime || '08:30');
 
-        // 1. ถ้าส่งคืนวันนี้ และเวลาคืนน้อยกว่าเวลาปัจจุบัน
-        if (formData.returnDate === today && val < nowTime) {
-            if (toast) toast.warning(`เวลาส่งคืนต้องไม่เป็นเวลาย้อนหลัง (เวลาปัจจุบันคือ ${nowTime} น.)`);
-            setFormData(prev => ({ ...prev, returnTime: nowTime }));
+        // 1. ถ้าส่งคืนวันนี้ และเวลาคืนน้อยกว่าหรือเท่ากับเวลาปัจจุบัน
+        if (formData.returnDate === today && val <= nowTime) {
+            if (toast) toast.warning(`เวลาส่งคืนต้องอยู่หลังเวลาปัจจุบัน (ปัจจุบันคือ ${nowTime} น.)`);
             return;
         }
 
-        // 2. ถ้าคืนวันเดียวกับวันที่ยืม และเวลาคืนน้อยกว่าเวลายืม
-        if (formData.returnDate === formData.borrowDate && val <= formData.borrowTime) {
-            if (toast) toast.warning('เวลาส่งคืนต้องอยู่หลังเวลาที่ยืม');
+        // 2. ถ้าคืนวันเดียวกับวันที่ยืม และเวลาคืนน้อยกว่าหรือเท่ากับเวลาเริ่มต้นยืม
+        if (formData.returnDate === formData.borrowDate && val <= effectiveBorrowTime) {
+            if (toast) toast.warning(`เวลาส่งคืนต้องอยู่หลังเวลาเริ่มต้นยืม (${effectiveBorrowTime} น.)`);
         }
 
         setFormData(prev => ({ ...prev, returnTime: val }));
@@ -478,29 +442,29 @@ export default function BorrowFormModal({
 
     // คำนวณความถูกต้องและระยะเวลายืมแบบ Realtime
     const durationInfo = useMemo(() => {
-        if (!formData.borrowDate || !formData.returnDate || !formData.borrowTime || !formData.returnTime) {
+        if (!formData.borrowDate || !formData.returnDate || !formData.returnTime) {
             return null;
         }
 
-        const bDate = new Date(`${formData.borrowDate}T${formData.borrowTime}:00`);
+        const nowTime = getLocalTimeString();
+        const effectiveBorrowTime = formData.borrowDate === today ? nowTime : (formData.borrowTime || '08:30');
+
+        const bDate = new Date(`${formData.borrowDate}T${effectiveBorrowTime}:00`);
         const rDate = new Date(`${formData.returnDate}T${formData.returnTime}:00`);
 
         if (isNaN(bDate.getTime()) || isNaN(rDate.getTime())) return null;
 
         const diffMs = rDate.getTime() - bDate.getTime();
         const maxMs = MAX_BORROW_DAYS * 24 * 60 * 60 * 1000;
-        const nowTime = getLocalTimeString();
 
-        const isBorrowPast = formData.borrowDate === today && formData.borrowTime < nowTime;
         const isReturnPast = formData.returnDate === today && formData.returnTime < nowTime;
         const isTooLong = diffMs > maxMs;
-        const isReturnBeforeBorrow = diffMs < 15 * 60 * 1000;
-        const isValid = !isBorrowPast && !isReturnPast && !isTooLong && !isReturnBeforeBorrow;
+        const isReturnBeforeBorrow = diffMs < 10 * 60 * 1000;
+        const isValid = !isReturnPast && !isTooLong && !isReturnBeforeBorrow;
         const text = getBorrowDurationText(bDate, rDate);
 
         return {
             isValid,
-            isBorrowPast,
             isReturnPast,
             isTooLong,
             isReturnBeforeBorrow,
@@ -542,13 +506,13 @@ export default function BorrowFormModal({
             setFormData(prev => ({
                 ...prev,
                 returnDate: addDaysLocal(base, 3),
-                returnTime: prev.borrowTime || '16:30'
+                returnTime: '16:30'
             }));
         } else if (presetKey === 'days_7') {
             setFormData(prev => ({
                 ...prev,
                 returnDate: addDaysLocal(base, 7),
-                returnTime: prev.borrowTime || '16:30'
+                returnTime: '16:30'
             }));
         }
         if (errors.returnDate || errors.returnTime) {
@@ -600,6 +564,7 @@ export default function BorrowFormModal({
         }
 
         const nowTime = getLocalTimeString();
+        const effectiveBorrowTime = formData.borrowDate === today ? nowTime : (formData.borrowTime || '08:30');
 
         // ตรวจสอบวันที่ยืม
         if (!formData.borrowDate) {
@@ -608,13 +573,6 @@ export default function BorrowFormModal({
             newErrors.borrowDate = 'ไม่สามารถยืมย้อนหลังได้ (ต้องเป็นวันนี้เป็นต้นไป)';
         } else if (maxBorrowDate && formData.borrowDate > maxBorrowDate) {
             newErrors.borrowDate = `สามารถจองยืมล่วงหน้าได้ไม่เกิน ${MAX_BORROW_DAYS} วัน`;
-        }
-
-        // ตรวจสอบเวลาที่ยืม
-        if (!formData.borrowTime) {
-            newErrors.borrowTime = 'กรุณาระบุเวลาที่ยืม';
-        } else if (formData.borrowDate === today && formData.borrowTime < nowTime) {
-            newErrors.borrowTime = `ไม่สามารถยืมเวลาย้อนหลังได้ (เวลาปัจจุบันคือ ${nowTime} น.)`;
         }
 
         // ตรวจสอบกำหนดคืน
@@ -629,21 +587,21 @@ export default function BorrowFormModal({
         // ตรวจสอบเวลาคืน
         if (!formData.returnTime) {
             newErrors.returnTime = 'กรุณาระบุเวลาคืน';
-        } else if (formData.returnDate === today && formData.returnTime < nowTime) {
-            newErrors.returnTime = `เวลาส่งคืนต้องไม่เป็นเวลาย้อนหลัง (เวลาปัจจุบันคือ ${nowTime} น.)`;
+        } else if (formData.returnDate === today && formData.returnTime <= nowTime) {
+            newErrors.returnTime = `เวลาส่งคืนต้องอยู่หลังเวลาปัจจุบัน (ปัจจุบันคือ ${nowTime} น.)`;
         }
 
         // ตรวจสอบวันและเวลาแบบละเอียด
-        if (formData.borrowDate && formData.returnDate && formData.borrowTime && formData.returnTime) {
-            const bDate = new Date(`${formData.borrowDate}T${formData.borrowTime}:00`);
+        if (formData.borrowDate && formData.returnDate && formData.returnTime) {
+            const bDate = new Date(`${formData.borrowDate}T${effectiveBorrowTime}:00`);
             const rDate = new Date(`${formData.returnDate}T${formData.returnTime}:00`);
             const diffMs = rDate.getTime() - bDate.getTime();
             const maxMs = MAX_BORROW_DAYS * 24 * 60 * 60 * 1000;
 
             if (rDate <= bDate) {
                 newErrors.returnTime = 'เวลาคืนต้องอยู่หลังเวลาที่ยืม';
-            } else if (diffMs < 15 * 60 * 1000) {
-                newErrors.returnTime = 'ระยะเวลายืมต้องไม่น้อยกว่า 15 นาที';
+            } else if (diffMs < 10 * 60 * 1000) {
+                newErrors.returnTime = 'ระยะเวลายืมต้องไม่น้อยกว่า 10 นาที';
             } else if (diffMs > maxMs) {
                 newErrors.returnTime = `ยืมได้สูงสุดไม่เกิน ${MAX_BORROW_DAYS} วัน (1 สัปดาห์)`;
             }
@@ -679,7 +637,10 @@ export default function BorrowFormModal({
         try {
             const cleanStr = (s) => String(s || '').replace(/[<>]/g, '').trim();
 
-            const borrowDateTime = new Date(`${formData.borrowDate}T${formData.borrowTime}:00`);
+            const nowTime = getLocalTimeString();
+            const effectiveBorrowTime = formData.borrowDate === today ? nowTime : (formData.borrowTime || '08:30');
+
+            const borrowDateTime = new Date(`${formData.borrowDate}T${effectiveBorrowTime}:00`);
             const returnDateTime = new Date(`${formData.returnDate}T${formData.returnTime}:00`);
 
             const primaryItem = selectedItems[0];
@@ -721,7 +682,7 @@ export default function BorrowFormModal({
                     : (formData.affiliation ? cleanStr(formData.affiliation) : '-'),
                 borrowDate: Timestamp.fromDate(borrowDateTime),
                 returnDate: Timestamp.fromDate(returnDateTime),
-                borrowTime: formData.borrowTime,
+                borrowTime: effectiveBorrowTime,
                 returnTime: formData.returnTime,
                 status: 'pending',
                 requestDate: serverTimestamp(),
@@ -1150,93 +1111,60 @@ export default function BorrowFormModal({
                                     title="รีเซ็ตวันที่ยืมและเวลาเป็นปัจจุบันทันที"
                                 >
                                     <span className="live-dot-pulse"></span>
-                                    <span>⚡ ตั้งเวลาปัจจุบัน ({getLocalTimeString()} น.)</span>
+                                    <span>⚡ รีเซ็ตเป็นวันนี้</span>
                                 </button>
                             </div>
 
                             {/* Schedule Cards Grid: 1. ขอยืม 2. ส่งคืน */}
                             <div className="schedule-cards-grid">
-                                {/* Card 1: กำหนดเวลายืม */}
+                                {/* Card 1: กำหนดวันที่ยืม */}
                                 <div className="schedule-subcard borrow-subcard">
                                     <div className="schedule-subcard-header">
                                         <div className="subcard-title">
                                             <span className="subcard-icon borrow-icon">🟢</span>
-                                            <strong>1. วันที่และเวลาที่ต้องการยืม</strong>
+                                            <strong>1. วันที่ต้องการยืม</strong>
                                         </div>
                                         <span className="subcard-badge borrow-badge">
                                             {formData.borrowDate === today ? 'ยืมวันนี้' : formatThaiDateShort(formData.borrowDate)}
                                         </span>
                                     </div>
 
-                                    <div className="schedule-inputs-row">
-                                        {/* วันที่ยืม */}
-                                        <div className="form-group schedule-field">
-                                            <label className="form-label schedule-field-label">
-                                                <span>📅 วันที่ยืม</span>
-                                                <span className="required">*</span>
-                                            </label>
-                                            <div className="input-decorated-wrap">
-                                                <input
-                                                    type="date"
-                                                    className="form-input form-input-decorated"
-                                                    min={today}
-                                                    max={maxBorrowDate}
-                                                    value={formData.borrowDate}
-                                                    onChange={e => handleBorrowDateChange(e.target.value)}
-                                                    onBlur={e => handleBorrowDateChange(e.target.value)}
-                                                />
-                                            </div>
-                                            {errors.borrowDate && <p className="form-error">{errors.borrowDate}</p>}
+                                    <div className="form-group schedule-field" style={{ marginBottom: 0 }}>
+                                        <label className="form-label schedule-field-label">
+                                            <span>📅 วันที่เริ่มต้นยืม</span>
+                                            <span className="required">*</span>
+                                        </label>
+                                        <div className="input-decorated-wrap">
+                                            <input
+                                                type="date"
+                                                className="form-input form-input-decorated"
+                                                min={today}
+                                                max={maxBorrowDate}
+                                                value={formData.borrowDate}
+                                                onChange={e => handleBorrowDateChange(e.target.value)}
+                                                onBlur={e => handleBorrowDateChange(e.target.value)}
+                                            />
                                         </div>
-
-                                        {/* เวลาที่ยืม */}
-                                        <div className="form-group schedule-field">
-                                            <label className="form-label schedule-field-label">
-                                                <span>🕒 เวลาที่ยืม</span>
-                                                <span className="required">*</span>
-                                            </label>
-                                            <div className="input-decorated-wrap">
-                                                <input
-                                                    type="time"
-                                                    className="form-input form-input-decorated"
-                                                    min={formData.borrowDate === today ? getLocalTimeString() : undefined}
-                                                    value={formData.borrowTime}
-                                                    onChange={e => handleBorrowTimeChange(e.target.value)}
-                                                    onBlur={e => handleBorrowTimeChange(e.target.value)}
-                                                />
-                                            </div>
-                                            {errors.borrowTime && <p className="form-error">{errors.borrowTime}</p>}
+                                        {errors.borrowDate && <p className="form-error">{errors.borrowDate}</p>}
+                                        <div style={{
+                                            fontSize: '0.8rem',
+                                            color: '#475569',
+                                            marginTop: '0.55rem',
+                                            padding: '0.45rem 0.65rem',
+                                            background: 'rgba(255, 255, 255, 0.75)',
+                                            borderRadius: '8px',
+                                            border: '1px solid rgba(226, 232, 240, 0.9)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.4rem'
+                                        }}>
+                                            <span>⚡</span>
+                                            <span>
+                                                {formData.borrowDate === today
+                                                    ? 'เริ่มนับเวลาตั้งแต่ส่งคำขอยืม (ตามเวลาปัจจุบัน)'
+                                                    : 'เริ่มยืมตั้งแต่ช่วงเปิดทำการ (08:30 น.)'}
+                                            </span>
                                         </div>
-                                    </div>
-
-                                    {/* Quick Time Chips for Borrow */}
-                                    <div className="quick-time-chips">
-                                        <span className="quick-chips-label">ทางลัดเวลา:</span>
-                                        <button
-                                            type="button"
-                                            className={`quick-time-chip ${formData.borrowDate === today && formData.borrowTime === getLocalTimeString() ? 'active' : ''}`}
-                                            onClick={syncToCurrentTime}
-                                        >
-                                            ⚡ ตอนนี้ ({getLocalTimeString()} น.)
-                                        </button>
-                                        {formData.borrowDate > today && (
-                                            <>
-                                                <button
-                                                    type="button"
-                                                    className={`quick-time-chip ${formData.borrowTime === '08:30' ? 'active' : ''}`}
-                                                    onClick={() => handleBorrowTimeChange('08:30')}
-                                                >
-                                                    🌅 08:30 น. (เปิดทำการ)
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={`quick-time-chip ${formData.borrowTime === '13:00' ? 'active' : ''}`}
-                                                    onClick={() => handleBorrowTimeChange('13:00')}
-                                                >
-                                                    ☀️ 13:00 น. (บ่าย)
-                                                </button>
-                                            </>
-                                        )}
                                     </div>
                                 </div>
 
@@ -1322,10 +1250,8 @@ export default function BorrowFormModal({
                                                     className="form-input form-input-decorated"
                                                     min={
                                                         formData.returnDate === today
-                                                            ? (formData.borrowDate === today
-                                                                ? (formData.borrowTime > getLocalTimeString() ? formData.borrowTime : getLocalTimeString())
-                                                                : getLocalTimeString())
-                                                            : (formData.returnDate === formData.borrowDate ? formData.borrowTime : undefined)
+                                                            ? getLocalTimeString()
+                                                            : (formData.returnDate === formData.borrowDate ? (formData.borrowDate === today ? getLocalTimeString() : (formData.borrowTime || '08:30')) : undefined)
                                                     }
                                                     value={formData.returnTime}
                                                     onChange={e => handleReturnTimeChange(e.target.value)}
