@@ -285,6 +285,28 @@ export default function BorrowFormModal({
         return options;
     }, [formData.borrowDate, today]);
 
+    // สร้างตัวเลือกวันที่ยืม 7 วันสำหรับแถบปฏิทินด่วน (Visual 7-Day Day Selector for Borrow)
+    const borrowDayOptions = useMemo(() => {
+        const options = [];
+        for (let i = 0; i <= MAX_BORROW_DAYS; i++) {
+            const dStr = addDaysLocal(today, i);
+            const [y, m, d] = dStr.split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            const dayName = THAI_DAYS_SHORT[dt.getDay()];
+            const monthName = THAI_MONTHS_SHORT[m - 1];
+            options.push({
+                offset: i,
+                dateStr: dStr,
+                dayName,
+                dayNumber: d,
+                monthName,
+                label: i === 0 ? 'วันนี้' : i === 1 ? 'พรุ่งนี้' : `+${i} วัน`,
+                isMax: i === MAX_BORROW_DAYS
+            });
+        }
+        return options;
+    }, [today]);
+
     // ตั้งค่ากลับเป็นวันนี้แบบ Real-time
     const syncToCurrentTime = () => {
         const nowTime = getLocalTimeString();
@@ -1095,26 +1117,6 @@ export default function BorrowFormModal({
 
                         {/* ===== Borrow Schedule (Date & Time) ===== */}
                         <div className="schedule-card-box">
-                            <div className="schedule-header-wrapper">
-                                <div className="schedule-title-col">
-                                    <h4 className="schedule-section-title">
-                                        📅 กำหนดเวลายืมและส่งคืนครุภัณฑ์
-                                    </h4>
-                                    <p className="schedule-subtitle">
-                                        🔒 ล็อคห้ามยืมย้อนหลัง • ⏱️ เริ่มต้นเวลาปัจจุบัน • 🗓️ ยืมได้สูงสุดไม่เกิน 7 วัน
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    className="btn-sync-time"
-                                    onClick={syncToCurrentTime}
-                                    title="รีเซ็ตวันที่ยืมและเวลาเป็นปัจจุบันทันที"
-                                >
-                                    <span className="live-dot-pulse"></span>
-                                    <span>⚡ รีเซ็ตเป็นวันนี้</span>
-                                </button>
-                            </div>
-
                             {/* Schedule Cards Grid: 1. ขอยืม 2. ส่งคืน */}
                             <div className="schedule-cards-grid">
                                 {/* Card 1: กำหนดวันที่ยืม */}
@@ -1127,6 +1129,43 @@ export default function BorrowFormModal({
                                         <span className="subcard-badge borrow-badge">
                                             {formData.borrowDate === today ? 'ยืมวันนี้' : formatThaiDateShort(formData.borrowDate)}
                                         </span>
+                                    </div>
+
+                                    {/* Visual 7-Day Day Selector Strip for Borrow */}
+                                    <div className="visual-days-container">
+                                        <div className="visual-days-header">
+                                            <span className="visual-days-title">🗓️ เลือกวันที่ต้องการยืม (แตะเลือกได้ทันที):</span>
+                                            <span className="visual-days-hint">ไม่เกิน {formatThaiDateShort(maxBorrowDate)}</span>
+                                        </div>
+                                        <div className="visual-days-scroll">
+                                            {borrowDayOptions.map(opt => {
+                                                const isSelected = formData.borrowDate === opt.dateStr;
+                                                return (
+                                                    <button
+                                                        key={opt.dateStr}
+                                                        type="button"
+                                                        className={`visual-day-card ${isSelected ? 'active' : ''}`}
+                                                        onClick={() => handleBorrowDateChange(opt.dateStr)}
+                                                    >
+                                                        <span className="vday-name">{opt.dayName}</span>
+                                                        <span className="vday-num">{opt.dayNumber}</span>
+                                                        <span className="vday-tag">{opt.label}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                            {/* Locked 8th Day Indicator */}
+                                            <div
+                                                className="visual-day-card locked"
+                                                title="จองยืมล่วงหน้าได้สูงสุดไม่เกิน 7 วัน"
+                                                onClick={() => {
+                                                    if (toast) toast.info('จองยืมล่วงหน้าได้สูงสุดไม่เกิน 7 วัน');
+                                                }}
+                                            >
+                                                <span className="vday-name">🔒</span>
+                                                <span className="vday-num">+8</span>
+                                                <span className="vday-tag">ล็อค</span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="form-group schedule-field" style={{ marginBottom: 0 }}>
