@@ -459,13 +459,19 @@ export default function BorrowFormModal({
             onClose();
         } catch (error) {
             console.error('Error submitting borrow request:', error);
+            if (toast) {
+                const errorMsg = error.message && (error.message.includes('ขออภัย') || error.message.includes('ไม่พบข้อมูล') || error.message.includes('คงเหลือ'))
+                    ? error.message
+                    : 'เกิดข้อผิดพลาดในการส่งคำขอยืม กรุณาลองใหม่อีกครั้ง';
+                toast.error(errorMsg);
+            }
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <h3>📝 แบบฟอร์มขอยืมครุภัณฑ์</h3>

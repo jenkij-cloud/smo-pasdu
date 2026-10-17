@@ -1608,6 +1608,7 @@ body {
     bottom: 0;
     z-index: 10;
     padding: 0.85rem 1.25rem;
+    padding-bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
     background: rgba(248, 250, 252, 0.96);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);

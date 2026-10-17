@@ -7,6 +7,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // ตรวจสอบความถูกต้องของการตัดสต็อกเมื่อผู้ใช้ทั่วไปยื่นคำขอยืม
+    // อนุญาตให้อัปเดตได้เฉพาะจำนวนคงเหลือ (quantity) เท่านั้น โดยค่าใหม่ต้องเป็นตัวเลข >= 0 และลดลงจากเดิม
+    function isValidStockDecrement() {
+      let diff = request.resource.data.diff(resource.data);
+      return diff.affectedKeys().hasOnly(['quantity']) &&
+             request.resource.data.quantity is number &&
+             request.resource.data.quantity >= 0 &&
+             request.resource.data.quantity < resource.data.quantity;
+    }
+
     // ตรวจสอบความถูกต้องของคำขอยืมใหม่ ป้องกันการปลอมแปลงสถานะและข้อมูล
     function isValidNewBorrowRequest() {
       let data = request.resource.data;
@@ -43,10 +53,11 @@ service cloud.firestore {
         (!('rejectReason' in data) || data.rejectReason == null);
     }
 
-    // คลังครุภัณฑ์: ทุกคนดูได้ แต่เฉพาะ Admin เท่านั้นที่แก้ไข/เพิ่ม/ลบได้
+    // คลังครุภัณฑ์: ทุกคนดูได้, Admin จัดการได้ทั้งหมด, ผู้ใช้ทั่วไปตัดสต็อก (quantity) ได้เมื่อส่งคำขอยืม
     match /equipments/{equipmentId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isValidStockDecrement();
     }
     
     // รายการคำขอยืม:
