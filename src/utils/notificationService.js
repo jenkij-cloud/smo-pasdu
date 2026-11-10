@@ -4,6 +4,8 @@
  */
 
 import { formatDate } from './dateUtils';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export const OFFICIAL_SENDER_EMAIL = 'studentscidi.68@gmail.com';
 
@@ -202,11 +204,24 @@ export async function sendBorrowNotification({ type, data }) {
     console.log(`[Notification Service] Target Student Email: ${studentEmail}`);
     console.log(`[Notification Service] Subject: ${template.subject}`);
 
-    const savedWebhook = localStorage.getItem('smo_notification_webhook');
+    let webhookUrl = localStorage.getItem('smo_notification_webhook');
 
-    if (savedWebhook) {
+    // ถ้าใน localStorage ไม่มี ให้ดึงจาก Firestore ส่วนกลาง
+    if (!webhookUrl) {
         try {
-            await fetch(savedWebhook, {
+            const settingSnap = await getDoc(doc(db, 'systemSettings', 'emailNotification'));
+            if (settingSnap.exists() && settingSnap.data().webhookUrl) {
+                webhookUrl = settingSnap.data().webhookUrl;
+                localStorage.setItem('smo_notification_webhook', webhookUrl);
+            }
+        } catch (fetchErr) {
+            console.warn('[Notification Service] Could not fetch webhook from Firestore:', fetchErr);
+        }
+    }
+
+    if (webhookUrl) {
+        try {
+            await fetch(webhookUrl, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },

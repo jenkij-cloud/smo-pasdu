@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { OFFICIAL_SENDER_EMAIL } from '../utils/notificationService';
 import { useToast } from '../context/ToastContext';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
 const APPS_SCRIPT_CODE = `function doPost(e) {
   try {
@@ -31,6 +33,25 @@ export default function EmailWebhookModal({ isOpen, onClose }) {
     );
     const [testEmail, setTestEmail] = useState('');
     const [testing, setTesting] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    // ดึงค่า Webhook URL จาก Firestore (คลาวด์ส่วนกลาง) เมื่อเปิด Modal
+    useEffect(() => {
+        if (!isOpen) return;
+        const fetchRemoteSetting = async () => {
+            try {
+                const settingSnap = await getDoc(doc(db, 'systemSettings', 'emailNotification'));
+                if (settingSnap.exists() && settingSnap.data().webhookUrl) {
+                    const remoteUrl = settingSnap.data().webhookUrl;
+                    setWebhookUrl(remoteUrl);
+                    localStorage.setItem('smo_notification_webhook', remoteUrl);
+                }
+            } catch (err) {
+                console.warn('Could not fetch remote webhook setting:', err);
+            }
+        };
+        fetchRemoteSetting();
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -39,17 +60,39 @@ export default function EmailWebhookModal({ isOpen, onClose }) {
         toast.success('คัดลอกโค้ด Google Apps Script แล้ว!');
     };
 
-    const handleSave = (e) => {
+    const handleSave = async (e) => {
         e.preventDefault();
         const trimmed = webhookUrl.trim();
-        if (trimmed) {
-            localStorage.setItem('smo_notification_webhook', trimmed);
-            toast.success('บันทึกการตั้งค่า Webhook เรียบร้อยแล้ว!');
-        } else {
-            localStorage.removeItem('smo_notification_webhook');
-            toast.info('ลบการตั้งค่า Webhook เรียบร้อยแล้ว');
+        setSaving(true);
+        try {
+            if (trimmed) {
+                // บันทึกทั้ง Firestore (ส่วนกลาง) และ localStorage (เครื่องปัจจุบัน)
+                await setDoc(doc(db, 'systemSettings', 'emailNotification'), {
+                    webhookUrl: trimmed,
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+
+                localStorage.setItem('smo_notification_webhook', trimmed);
+                toast.success('บันทึกการตั้งค่า Webhook ไปยังระบบคลาวด์ส่วนกลางเรียบร้อยแล้ว!');
+            } else {
+                await deleteDoc(doc(db, 'systemSettings', 'emailNotification'));
+                localStorage.removeItem('smo_notification_webhook');
+                toast.info('ลบการตั้งค่า Webhook เรียบร้อยแล้ว');
+            }
+            onClose();
+        } catch (err) {
+            console.error('Save webhook error:', err);
+            // Fallback บันทึกในเครื่องหากมีปัญหาเรื่องเน็ตเวิร์ก
+            if (trimmed) {
+                localStorage.setItem('smo_notification_webhook', trimmed);
+                toast.warning('บันทึกเฉพาะในเครื่องนี้ (ไม่สามารถเชื่อมต่อคลาวด์ได้)');
+                onClose();
+            } else {
+                toast.error('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+            }
+        } finally {
+            setSaving(false);
         }
-        onClose();
     };
 
     const handleTestSend = async () => {

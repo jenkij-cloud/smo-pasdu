@@ -69,5 +69,11 @@ service cloud.firestore {
       allow create: if isValidNewBorrowRequest();
       allow update, delete: if isAdmin();
     }
+
+    // การตั้งค่าระบบ (เช่น Webhook สำหรับส่งอีเมล):
+    // - Admin ที่ล็อกอินแล้วสามารถอ่านและแก้ไขได้
+    match /systemSettings/{settingId} {
+      allow read, write: if isAdmin();
+    }
   }
 }
