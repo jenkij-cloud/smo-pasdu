@@ -2,6 +2,7 @@ import StatusBadge from './StatusBadge';
 import { formatDate, formatDateTime, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText, isDueSoon, getDueSoonText, maskPhone, maskEmail } from '../utils/dateUtils';
 import { generateBorrowSlipText, getStudentEmail, createMailtoUrl } from '../utils/notificationService';
 import { useToast } from '../context/ToastContext';
+import { handleImageError } from '../utils/imageUtils';
 
 export default function RequestDetailModal({
     isOpen,
@@ -124,7 +125,7 @@ export default function RequestDetailModal({
                                                 <td>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         {it.imageUrl ? (
-                                                            <img src={it.imageUrl} alt={it.equipmentName} className="detail-item-thumb" />
+                                                            <img src={it.imageUrl} alt={it.equipmentName} className="detail-item-thumb" onError={handleImageError} />
                                                         ) : (
                                                             <span style={{ fontSize: '1.25rem' }}>📦</span>
                                                         )}

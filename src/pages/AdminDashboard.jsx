@@ -26,6 +26,7 @@ import { useToast } from '../context/ToastContext';
 import { formatDate, isOverdue, formatDateTimeRange, getOverdueText, isDueSoon, getDueSoonText } from '../utils/dateUtils';
 import { sendBorrowNotification, getStudentEmail, createMailtoUrl, OFFICIAL_SENDER_EMAIL } from '../utils/notificationService';
 import * as XLSX from 'xlsx';
+import { handleImageError } from '../utils/imageUtils';
 
 export default function AdminDashboard() {
     const { user, loading: authLoading } = useAuth();
@@ -314,6 +315,43 @@ export default function AdminDashboard() {
         } catch (err) {
             console.error('Error saving equipment:', err);
             toast.error('เกิดข้อผิดพลาดในการบันทึกครุภัณฑ์');
+        }
+    };
+
+    // ลบรูปภาพ URL ที่ไม่ตรงกับอุปกรณ์ออกจากฐานข้อมูลทั้งหมด
+    const [isClearingImages, setIsClearingImages] = useState(false);
+
+    const urlImagesCount = useMemo(() => {
+        return equipments.filter(e => e.imageUrl && e.imageUrl.startsWith('http')).length;
+    }, [equipments]);
+
+    const handleClearUrlImages = async () => {
+        const urlItems = equipments.filter(e => e.imageUrl && e.imageUrl.startsWith('http'));
+        if (urlItems.length === 0) {
+            toast.info('ไม่มีรูปภาพ URL ที่ต้องลบ');
+            return;
+        }
+
+        if (!window.confirm(`ต้องการลบรูปภาพ URL ออกจากครุภัณฑ์ทั้ง ${urlItems.length} รายการ หรือไม่?`)) {
+            return;
+        }
+
+        setIsClearingImages(true);
+        let successCount = 0;
+        try {
+            for (const item of urlItems) {
+                await updateDoc(doc(db, 'equipments', item.id), {
+                    imageUrl: '',
+                    updatedAt: serverTimestamp()
+                });
+                successCount++;
+            }
+            toast.success(`ลบรูปภาพออกเรียบร้อยแล้ว (${successCount} รายการ)`);
+        } catch (err) {
+            console.error('Error clearing images:', err);
+            toast.error('เกิดข้อผิดพลาดในการลบรูปภาพ: ' + (err.message || ''));
+        } finally {
+            setIsClearingImages(false);
         }
     };
 
@@ -1083,7 +1121,17 @@ export default function AdminDashboard() {
                         <div className="data-table-container">
                             <div className="table-header">
                                 <h3>📦 จัดการรายการครุภัณฑ์ ({equipments.length} รายการ)</h3>
-                                <div className="table-actions">
+                                <div className="table-actions" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    {urlImagesCount > 0 && (
+                                        <button
+                                            className="btn btn-danger btn-sm"
+                                            onClick={handleClearUrlImages}
+                                            disabled={isClearingImages}
+                                            title="ลบรูปภาพ URL ที่ไม่ตรงกับอุปกรณ์ออกทั้งหมด"
+                                        >
+                                            {isClearingImages ? '⏳ กำลังลบรูปภาพ...' : `🗑️ ลบรูปภาพ URL ทั้งหมด (${urlImagesCount})`}
+                                        </button>
+                                    )}
                                     <button
                                         className="btn btn-warning"
                                         onClick={() => { setEditingEquipment(null); setShowEquipmentForm(true); }}
@@ -1133,6 +1181,7 @@ export default function AdminDashboard() {
                                                             src={equipment.imageUrl}
                                                             alt={equipment.name}
                                                             className="table-equip-thumb"
+                                                            onError={handleImageError}
                                                         />
                                                     ) : (
                                                         <div className="table-equip-thumb-fallback">📦</div>
@@ -1189,6 +1238,7 @@ export default function AdminDashboard() {
                                                             src={equipment.imageUrl}
                                                             alt={equipment.name}
                                                             className="mobile-equip-thumb"
+                                                            onError={handleImageError}
                                                         />
                                                     ) : (
                                                         <div className="mobile-equip-thumb-fallback">📦</div>

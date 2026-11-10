@@ -4,6 +4,7 @@ import { getStudentEmail } from '../utils/notificationService';
 import { getBorrowDurationText } from '../utils/dateUtils';
 import { useToast } from '../context/ToastContext';
 import FacultySelect, { FACULTIES } from './FacultySelect';
+import { handleImageError } from '../utils/imageUtils';
 
 // ฟังก์ชันแปลง Date เป็น YYYY-MM-DD ตามเวลาท้องถิ่นไทย (ป้องกันปัญหา timezone UTC+7 เลื่อนวัน)
 const getLocalDateString = (d = new Date()) => {
@@ -782,7 +783,7 @@ export default function BorrowFormModal({
                                         <div key={item.equipmentId} className="borrow-item-card">
                                             <div className="borrow-item-preview">
                                                 {item.imageUrl ? (
-                                                    <img src={item.imageUrl} alt={item.equipmentName} className="borrow-item-img" />
+                                                    <img src={item.imageUrl} alt={item.equipmentName} className="borrow-item-img" onError={handleImageError} />
                                                 ) : (
                                                     <div className="borrow-item-placeholder">📦</div>
                                                 )}

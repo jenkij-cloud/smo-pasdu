@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { storage } from '../firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '../context/ToastContext';
+import { compressImage } from '../utils/imageUtils';
 
 export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
     const toast = useToast();
@@ -16,7 +15,9 @@ export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
     });
 
     const [imageFile, setImageFile] = useState(null);
+    const [compressedData, setCompressedData] = useState(null);
     const [imagePreview, setImagePreview] = useState(equipment?.imageUrl || '');
+    const [isCompressing, setIsCompressing] = useState(false);
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(false);
@@ -30,16 +31,44 @@ export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error('ขนาดไฟล์รูปภาพต้องไม่เกิน 5MB');
-                return;
-            }
+    const handleFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, WebP)');
+            return;
+        }
+
+        if (file.size > 15 * 1024 * 1024) {
+            toast.error('ขนาดไฟล์รูปภาพต้องไม่เกิน 15MB');
+            return;
+        }
+
+        try {
+            setIsCompressing(true);
+            // บีบอัดรูปภาพลงให้กว้าง/สูงไม่เกิน 800px เพื่อความรวดเร็วและป้องกันหน้าค้าง
+            const compressed = await compressImage(file, 800, 800, 0.75);
+            setImageFile(file);
+            setCompressedData(compressed);
+            setImagePreview(compressed.dataUrl);
+            setFormData(prev => ({ ...prev, imageUrl: '' }));
+        } catch (err) {
+            console.error('Error compressing image:', err);
             setImageFile(file);
             setImagePreview(URL.createObjectURL(file));
+        } finally {
+            setIsCompressing(false);
         }
+    };
+
+    const handleRemoveImage = () => {
+        setImageFile(null);
+        setCompressedData(null);
+        setImagePreview('');
+        setFormData(prev => ({ ...prev, imageUrl: '' }));
+        const fileInput = document.getElementById('equipment-image-file');
+        if (fileInput) fileInput.value = '';
     };
 
     const handleSubmit = async (e) => {
@@ -50,15 +79,14 @@ export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
         let finalImageUrl = formData.imageUrl;
 
         try {
-            // หากมีการเลือกไฟล์รูปภาพใหม่ ให้ทำการอัปโหลดขึ้น Firebase Storage
-            if (imageFile) {
+            // หากมีการเลือกไฟล์รูปภาพใหม่ ให้ใช้รูปภาพที่บีบอัดแล้วบันทึกลงฐานข้อมูล Firestore ได้ทันที
+            // วิธีนี้ทำงานได้รวดเร็วในเสี้ยววินาที ไม่ต้องรอ Storage และใช้งานได้ 100% บนแพ็กเกจฟรี Spark โดยไม่ต้องผูกบัตรเครดิต
+            if (compressedData?.dataUrl) {
+                finalImageUrl = compressedData.dataUrl;
+            } else if (imageFile) {
                 setUploadProgress(true);
-                const fileExt = imageFile.name.split('.').pop();
-                const storagePath = `equipments/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-                const storageRef = ref(storage, storagePath);
-
-                await uploadBytes(storageRef, imageFile);
-                finalImageUrl = await getDownloadURL(storageRef);
+                const compressed = await compressImage(imageFile, 800, 800, 0.75);
+                finalImageUrl = compressed.dataUrl;
                 setUploadProgress(false);
             }
 
@@ -98,27 +126,61 @@ export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
                                     )}
                                 </div>
                                 <div className="image-inputs-slot">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        id="equipment-image-file"
-                                        style={{ display: 'none' }}
-                                        onChange={handleFileChange}
-                                    />
-                                    <label htmlFor="equipment-image-file" className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
-                                        📁 เลือกไฟล์รูปภาพจากเครื่อง
-                                    </label>
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', margin: '6px 0' }}>หรือระบุ URL รูปภาพ:</span>
+                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            id="equipment-image-file"
+                                            style={{ display: 'none' }}
+                                            onChange={handleFileChange}
+                                            disabled={isCompressing || submitting}
+                                        />
+                                        <label
+                                            htmlFor="equipment-image-file"
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ cursor: isCompressing || submitting ? 'not-allowed' : 'pointer' }}
+                                        >
+                                            {isCompressing ? '⏳ กำลังประมวลผลรูป...' : '📁 เลือกไฟล์รูปภาพจากเครื่อง'}
+                                        </label>
+                                        {imagePreview && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm"
+                                                onClick={handleRemoveImage}
+                                                disabled={isCompressing || submitting}
+                                                style={{ color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)' }}
+                                                title="ลบรูปภาพ"
+                                            >
+                                                🗑️ ลบรูป
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {compressedData && (
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--success, #10b981)', display: 'block', marginTop: '4px' }}>
+                                            ✅ บีบอัดรูปภาพแล้ว (~{Math.round(compressedData.compressedSize / 1024)} KB) พร้อมบันทึก
+                                        </span>
+                                    )}
+
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', display: 'block', margin: '6px 0' }}>
+                                        หรือระบุ URL รูปภาพ:
+                                    </span>
                                     <input
                                         type="url"
                                         className="form-input form-input-sm"
                                         placeholder="https://example.com/image.jpg"
                                         value={formData.imageUrl}
+                                        disabled={Boolean(imageFile) || submitting}
                                         onChange={e => {
                                             setFormData({ ...formData, imageUrl: e.target.value });
-                                            if (!imageFile) setImagePreview(e.target.value);
+                                            setImagePreview(e.target.value);
                                         }}
                                     />
+                                    {imageFile && (
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'block', marginTop: '2px' }}>
+                                            * หากต้องการใช้ URL รูปภาพแทน ให้กด "🗑️ ลบรูป" ด้านบนก่อน
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -211,7 +273,7 @@ export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
                             ยกเลิก
                         </button>
                         <button type="submit" className="btn btn-primary" disabled={submitting}>
-                            {uploadProgress ? '⏳ กำลังอัปโหลดรูป...' : submitting ? '⏳ กำลังบันทึก...' : '💾 บันทึกข้อมูล'}
+                            {uploadProgress ? '⏳ กำลังประมวลผลรูปภาพ...' : submitting ? '⏳ กำลังบันทึก...' : '💾 บันทึกข้อมูล'}
                         </button>
                     </div>
                 </form>

@@ -1509,19 +1509,21 @@ body {
   }
 
   .card-top-badges {
-    top: 0.4rem;
-    left: 0.4rem;
-    right: 0.4rem;
+    top: 0.35rem;
+    left: 0.35rem;
+    right: 0.35rem;
+    gap: 0.25rem;
   }
 
-  .card-category {
-    font-size: 0.68rem;
-    padding: 0.15rem 0.5rem;
+  .card-top-badges .card-category {
+    font-size: 0.62rem;
+    padding: 0.12rem 0.45rem;
+    max-width: 55%;
   }
 
   .card-condition-badge {
-    font-size: 0.65rem;
-    padding: 0.15rem 0.45rem;
+    font-size: 0.6rem;
+    padding: 0.12rem 0.4rem;
   }
 
   .equipment-card .card-body {
@@ -2110,22 +2112,44 @@ body {
 
 .card-top-badges {
   position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
-  right: 0.75rem;
+  top: 0.6rem;
+  left: 0.6rem;
+  right: 0.6rem;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 0.35rem;
+  pointer-events: none;
+}
+
+.card-top-badges .card-category {
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary, #1e293b);
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .card-condition-badge {
-  font-size: 0.75rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.72rem;
   padding: 0.2rem 0.6rem;
   border-radius: 20px;
   backdrop-filter: blur(8px);
   background: rgba(255, 255, 255, 0.9);
   font-weight: 600;
   border: 1px solid transparent;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .card-title {
