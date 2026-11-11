@@ -1,3 +1,5 @@
+import { getCategoryIcon } from '../utils/categoryUtils';
+
 export default function EquipmentCard({
     equipment,
     onBorrow,
@@ -37,7 +39,9 @@ export default function EquipmentCard({
                     <span className="card-fallback-icon">📦</span>
                 </div>
                 <div className="card-top-badges">
-                    <span className="card-category">{equipment.category || 'ทั่วไป'}</span>
+                    <span className="card-category">
+                        {getCategoryIcon(equipment.category)} {equipment.category || 'ทั่วไป'}
+                    </span>
                     {condition && (
                         <span
                             className="card-condition-badge"

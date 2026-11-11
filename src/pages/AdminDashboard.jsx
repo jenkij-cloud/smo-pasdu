@@ -28,6 +28,7 @@ import { formatDate, isOverdue, formatDateTimeRange, getOverdueText, isDueSoon, 
 import { sendBorrowNotification, getStudentEmail, createMailtoUrl, OFFICIAL_SENDER_EMAIL } from '../utils/notificationService';
 import * as XLSX from 'xlsx';
 import { handleImageError } from '../utils/imageUtils';
+import { getCategoryIcon } from '../utils/categoryUtils';
 
 export default function AdminDashboard() {
     const { user, loading: authLoading } = useAuth();
@@ -1220,7 +1221,7 @@ export default function AdminDashboard() {
                                                         <div className="cell-subtext">📍 {equipment.location}</div>
                                                     )}
                                                 </td>
-                                                <td><span className="card-category">{equipment.category}</span></td>
+                                                <td><span className="card-category">{getCategoryIcon(equipment.category)} {equipment.category}</span></td>
                                                 <td>{equipment.serialNumber ? <code>{equipment.serialNumber}</code> : '-'}</td>
                                                 <td style={{ whiteSpace: 'nowrap' }}>
                                                     <span className={`badge-cond badge-cond-${equipment.condition || 'good'}`}>
@@ -1277,7 +1278,7 @@ export default function AdminDashboard() {
                                                         <div className="mobile-equip-location">📍 {equipment.location}</div>
                                                     )}
                                                     <div className="mobile-equip-tags">
-                                                        <span className="card-category">{equipment.category}</span>
+                                                        <span className="card-category">{getCategoryIcon(equipment.category)} {equipment.category}</span>
                                                         <span className={`badge-cond badge-cond-${equipment.condition || 'good'}`}>
                                                             {equipment.condition === 'excellent' ? '🟢 ดีมาก' :
                                                              equipment.condition === 'fair' ? '🟡 พอใช้' : '🔵 ปกติ'}

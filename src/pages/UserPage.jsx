@@ -13,20 +13,9 @@ import EquipmentCard from '../components/EquipmentCard';
 import BorrowFormModal from '../components/BorrowFormModal';
 import { useToast } from '../context/ToastContext';
 import { sendBorrowNotification } from '../utils/notificationService';
+import { getCategoryIcon } from '../utils/categoryUtils';
 
-// ฟังก์ชันจับคู่อีโมจิ/ไอคอนให้เข้ากับหมวดหมู่ต่างๆ
-export const getCategoryIcon = (category) => {
-    if (!category || category === 'all') return '📁';
-    const lower = category.toLowerCase();
-    if (lower.includes('กีฬา') || lower.includes('sport')) return '⚽';
-    if (lower.includes('วัสดุ') || lower.includes('อุปกรณ์') || lower.includes('เครื่องมือ')) return '📦';
-    if (lower.includes('ตรา') || lower.includes('สัญลักษณ์') || lower.includes('ป้าย')) return '🏅';
-    if (lower.includes('สื่อสาร') || lower.includes('วิทยุ') || lower.includes('ไมค์')) return '📻';
-    if (lower.includes('คอม') || lower.includes('ไอที') || lower.includes('it') || lower.includes('โน้ตบุ๊ก')) return '💻';
-    if (lower.includes('กล้อง') || lower.includes('ถ่ายภาพ')) return '📷';
-    if (lower.includes('เอกสาร') || lower.includes('หนังสือ')) return '📄';
-    return '🏷️';
-};
+export { getCategoryIcon };
 
 export default function UserPage() {
     const toast = useToast();

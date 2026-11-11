@@ -5,6 +5,7 @@ import { getBorrowDurationText } from '../utils/dateUtils';
 import { useToast } from '../context/ToastContext';
 import FacultySelect, { FACULTIES } from './FacultySelect';
 import { handleImageError } from '../utils/imageUtils';
+import { getCategoryIcon } from '../utils/categoryUtils';
 
 // ฟังก์ชันแปลง Date เป็น YYYY-MM-DD ตามเวลาท้องถิ่นไทย (ป้องกันปัญหา timezone UTC+7 เลื่อนวัน)
 const getLocalDateString = (d = new Date()) => {
@@ -797,7 +798,7 @@ export default function BorrowFormModal({
                                             <div className="borrow-item-info">
                                                 <h4 className="borrow-item-title">{item.equipmentName}</h4>
                                                 <div className="borrow-item-meta">
-                                                    <span className="card-category-sm">{item.equipmentCategory || 'ทั่วไป'}</span>
+                                                    <span className="card-category-sm">{getCategoryIcon(item.equipmentCategory)} {item.equipmentCategory || 'ทั่วไป'}</span>
                                                     {item.equipmentSerial && (
                                                         <span className="badge-serial-sm">SN: {item.equipmentSerial}</span>
                                                     )}

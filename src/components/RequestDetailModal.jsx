@@ -3,6 +3,7 @@ import { formatDate, formatDateTime, isOverdue, getDaysOverdue, getOverdueText, 
 import { generateBorrowSlipText, getStudentEmail, createMailtoUrl } from '../utils/notificationService';
 import { useToast } from '../context/ToastContext';
 import { handleImageError } from '../utils/imageUtils';
+import { getCategoryIcon } from '../utils/categoryUtils';
 
 export default function RequestDetailModal({
     isOpen,
@@ -132,7 +133,7 @@ export default function RequestDetailModal({
                                                         <strong>{it.equipmentName}</strong>
                                                     </div>
                                                 </td>
-                                                <td><span className="card-category-sm">{it.equipmentCategory || '-'}</span></td>
+                                                <td><span className="card-category-sm">{getCategoryIcon(it.equipmentCategory)} {it.equipmentCategory || '-'}</span></td>
                                                 <td><code style={{ fontSize: '0.85rem' }}>{it.equipmentSerial || '-'}</code></td>
                                                 <td style={{ textAlign: 'center' }}>
                                                     <span className="badge-qty" style={{ fontSize: '0.9rem' }}>{it.quantity} {it.unit || 'ชิ้น'}</span>
