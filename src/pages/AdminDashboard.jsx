@@ -1167,9 +1167,9 @@ export default function AdminDashboard() {
                                             <th>ชื่อครุภัณฑ์</th>
                                             <th>หมวดหมู่</th>
                                             <th>รหัสครุภัณฑ์ (SN)</th>
-                                            <th>สภาพ</th>
-                                            <th>คงเหลือ</th>
-                                            <th style={{ textAlign: 'center' }}>การดำเนินการ</th>
+                                            <th style={{ minWidth: '95px', whiteSpace: 'nowrap' }}>สภาพ</th>
+                                            <th style={{ minWidth: '85px', whiteSpace: 'nowrap' }}>คงเหลือ</th>
+                                            <th style={{ textAlign: 'center', minWidth: '130px', whiteSpace: 'nowrap' }}>การดำเนินการ</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1195,7 +1195,7 @@ export default function AdminDashboard() {
                                                 </td>
                                                 <td><span className="card-category">{equipment.category}</span></td>
                                                 <td>{equipment.serialNumber ? <code>{equipment.serialNumber}</code> : '-'}</td>
-                                                <td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>
                                                     <span className={`badge-cond badge-cond-${equipment.condition || 'good'}`}>
                                                         {equipment.condition === 'excellent' ? '🟢 ดีมาก' :
                                                          equipment.condition === 'fair' ? '🟡 พอใช้' : '🔵 ปกติ'}
