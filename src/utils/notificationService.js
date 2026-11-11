@@ -74,6 +74,7 @@ ${equipDetails}
 - วันที่ยืม: ${borrowDateStr}
 - กำหนดส่งคืน: ${returnDateStr}
 - วัตถุประสงค์: ${request.purpose || '-'}
+${request.approvedByName ? `- ผู้อนุมัติ: ${request.approvedByName}\n` : ''}${request.approveNotes ? `- หมายเหตุการอนุมัติ: ${request.approveNotes}\n` : ''}
 
 📌 กรุณานำบัตรประจำตัวนิสิต/บุคลากรมาติดต่อขอรับครุภัณฑ์ ณ ห้องสโมสรนิสิต
 และโปรดนำมาส่งคืนภายในกำหนดเวลาดังกล่าว
@@ -122,6 +123,7 @@ ${equipDetails}
 - วันที่ยืม: ${borrowDateStr}
 - กำหนดส่งคืน: ${returnDateStr}
 - วัตถุประสงค์: ${request.purpose || '-'}
+${request.approvedByName ? `- ผู้อนุมัติ: ${request.approvedByName}\n` : ''}${request.approveNotes ? `- หมายเหตุการอนุมัติ: ${request.approveNotes}\n` : ''}
 
 📌 กรุณาตรวจสอบความเรียบร้อยและนำครุภัณฑ์มาส่งคืน ณ ห้องสโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล
 ภายในกำหนดเวลาดังกล่าว เพื่ออำนวยความสะดวกแก่นิสิตและอาจารย์ท่านอื่นที่รอใช้งานต่อไป
@@ -258,6 +260,6 @@ ${equipDetails}
 - สถานะ: ${request.status}
 - วันที่ยืม: ${request.borrowDate ? formatDate(request.borrowDate, true) : '-'}
 - กำหนดคืน: ${request.returnDate ? formatDate(request.returnDate, true) : '-'}
-${request.returnedDate ? `- วันที่ส่งคืนจริง: ${formatDate(request.returnedDate, true)}\n` : ''}${request.returnedReceiverName ? `- ผู้รับคืน: ${request.returnedReceiverName}\n` : ''}${request.returnNotes ? `- หมายเหตุการรับคืน: ${request.returnNotes}\n` : ''}`;
+${request.approvedByName ? `- ผู้อนุมัติ: ${request.approvedByName}\n` : ''}${request.approveNotes ? `- หมายเหตุการอนุมัติ: ${request.approveNotes}\n` : ''}${request.returnedDate ? `- วันที่ส่งคืนจริง: ${formatDate(request.returnedDate, true)}\n` : ''}${request.returnedReceiverName ? `- ผู้รับคืน: ${request.returnedReceiverName}\n` : ''}${request.returnNotes ? `- หมายเหตุการรับคืน: ${request.returnNotes}\n` : ''}`;
 }
 

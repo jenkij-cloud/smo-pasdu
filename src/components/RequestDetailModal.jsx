@@ -287,6 +287,16 @@ export default function RequestDetailModal({
                                     <span className="timeline-dot timeline-dot-success"></span>
                                     <div>
                                         <strong>อนุมัติคำขอ:</strong> {formatDate(request.approvedDate, true)}
+                                        {request.approvedByName && (
+                                            <div style={{ fontSize: '0.875rem', color: '#059669', marginTop: '4px', fontWeight: 600 }}>
+                                                👤 ผู้อนุมัติ: {request.approvedByName}
+                                                {request.approveNotes && (
+                                                    <span style={{ color: '#475569', fontWeight: 400, marginLeft: '6px' }}>
+                                                        ({request.approveNotes})
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </li>
                             )}

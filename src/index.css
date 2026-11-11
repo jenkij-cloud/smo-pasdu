@@ -2403,6 +2403,28 @@ body {
   font-weight: 500;
 }
 
+.table-approve-snippet {
+  font-size: 0.75rem;
+  color: #059669;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.mobile-req-approve-person {
+  font-size: 0.8rem;
+  color: #065f46;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  margin-top: 0.35rem;
+  display: block;
+}
+
 .mobile-req-return-receiver {
   font-size: 0.8rem;
   color: #1d4ed8;

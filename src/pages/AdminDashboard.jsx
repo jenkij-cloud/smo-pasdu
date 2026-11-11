@@ -18,6 +18,7 @@ import StatusBadge from '../components/StatusBadge';
 import ConfirmModal from '../components/ConfirmModal';
 import RejectReasonModal from '../components/RejectReasonModal';
 import ReturnModal from '../components/ReturnModal';
+import ApproveModal from '../components/ApproveModal';
 import RequestDetailModal from '../components/RequestDetailModal';
 import EquipmentFormModal from '../components/EquipmentFormModal';
 import EmailWebhookModal from '../components/EmailWebhookModal';
@@ -52,6 +53,7 @@ export default function AdminDashboard() {
     const [detailRequest, setDetailRequest] = useState(null);
     const [rejectingRequest, setRejectingRequest] = useState(null);
     const [returningRequest, setReturningRequest] = useState(null);
+    const [approvingRequest, setApprovingRequest] = useState(null);
     const [confirmAction, setConfirmAction] = useState(null);
     const [showEquipmentForm, setShowEquipmentForm] = useState(false);
     const [editingEquipment, setEditingEquipment] = useState(null);
@@ -285,6 +287,16 @@ export default function AdminDashboard() {
         await handleStatusChange(rejectingRequest.id, 'rejected', { rejectReason: reason });
     };
 
+    // Approval confirmation handler (บันทึกชื่อผู้อนุมัติ)
+    const handleConfirmApprove = async ({ approvedByName, approveNotes }) => {
+        if (!approvingRequest) return;
+        await handleStatusChange(approvingRequest.id, 'approved', {
+            approvedByName,
+            approveNotes
+        });
+        setApprovingRequest(null);
+    };
+
     // Return confirmation handler (บันทึกชื่อผู้รับคืนและสภาพพัสดุ)
     const handleConfirmReturn = async ({ returnedReceiverName, returnNotes }) => {
         if (!returningRequest) return;
@@ -395,6 +407,8 @@ export default function AdminDashboard() {
             'เหตุผลที่ปฏิเสธ',
             'วันที่ยื่นคำขอ',
             'วันที่อนุมัติ',
+            'ผู้อนุมัติ',
+            'หมายเหตุการอนุมัติ',
             'วันที่คืนจริง',
             'ผู้รับคืน',
             'หมายเหตุการรับคืน'
@@ -435,6 +449,8 @@ export default function AdminDashboard() {
                 r.rejectReason || '-',
                 formatDate(r.requestDate, true),
                 formatDate(r.approvedDate, true),
+                r.approvedByName || '-',
+                r.approveNotes || '-',
                 formatDate(r.returnedDate, true),
                 r.returnedReceiverName || '-',
                 r.returnNotes || '-'
@@ -864,6 +880,11 @@ export default function AdminDashboard() {
                                                     </td>
                                                     <td>
                                                         <StatusBadge status={overdue ? 'overdue' : request.status} />
+                                                        {request.approvedByName && request.status !== 'rejected' && (
+                                                            <div className="table-approve-snippet" title={`ผู้อนุมัติ: ${request.approvedByName}${request.approveNotes ? ` (${request.approveNotes})` : ''}`}>
+                                                                ✅ อนุมัติโดย: {request.approvedByName}
+                                                            </div>
+                                                        )}
                                                         {request.status === 'rejected' && request.rejectReason && (
                                                             <div className="table-reject-snippet" title={request.rejectReason}>
                                                                 💬 {request.rejectReason}
@@ -910,7 +931,7 @@ export default function AdminDashboard() {
                                                                 <>
                                                                     <button
                                                                         className="btn btn-success btn-sm"
-                                                                        onClick={() => handleStatusChange(request.id, 'approved')}
+                                                                        onClick={() => setApprovingRequest(request)}
                                                                     >
                                                                         ✓ อนุมัติ
                                                                     </button>
@@ -1018,6 +1039,12 @@ export default function AdminDashboard() {
                                                             💬 {request.rejectReason}
                                                         </div>
                                                     )}
+                                                    {request.approvedByName && request.status !== 'rejected' && (
+                                                        <div className="mobile-req-approve-person">
+                                                            ✅ อนุมัติโดย: <strong>{request.approvedByName}</strong>
+                                                            {request.approveNotes && <span style={{ color: '#047857', fontSize: '0.78rem' }}> ({request.approveNotes})</span>}
+                                                        </div>
+                                                    )}
                                                     {request.status === 'returned' && request.returnedReceiverName && (
                                                         <div className="mobile-req-return-receiver">
                                                             📥 รับคืนโดย: <strong>{request.returnedReceiverName}</strong>
@@ -1058,7 +1085,7 @@ export default function AdminDashboard() {
                                                         <>
                                                             <button
                                                                 className="btn btn-success mobile-action-btn"
-                                                                onClick={() => handleStatusChange(request.id, 'approved')}
+                                                                onClick={() => setApprovingRequest(request)}
                                                             >
                                                                 ✓ อนุมัติ
                                                             </button>
@@ -1313,7 +1340,7 @@ export default function AdminDashboard() {
                     request={detailRequest}
                     isAdmin={true}
                     onClose={() => setDetailRequest(null)}
-                    onApprove={(r) => handleStatusChange(r.id, 'approved')}
+                    onApprove={(r) => { setDetailRequest(null); setApprovingRequest(r); }}
                     onReject={(r) => setRejectingRequest(r)}
                     onReturn={(r) => { setDetailRequest(null); setReturningRequest(r); }}
                     onSendDueReminder={handleSendDueReminder}
@@ -1326,6 +1353,15 @@ export default function AdminDashboard() {
                     request={returningRequest}
                     onConfirm={handleConfirmReturn}
                     onCancel={() => setReturningRequest(null)}
+                />
+            )}
+
+            {approvingRequest && (
+                <ApproveModal
+                    isOpen={Boolean(approvingRequest)}
+                    request={approvingRequest}
+                    onConfirm={handleConfirmApprove}
+                    onCancel={() => setApprovingRequest(null)}
                 />
             )}
 

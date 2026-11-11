@@ -237,6 +237,29 @@ export default function StatusCheckPage() {
                                                 </div>
                                             )}
 
+                                            {/* แสดงข้อมูลผู้อนุมัติ เมื่ออนุมัติแล้ว */}
+                                            {request.status === 'approved' && request.approvedByName && (
+                                                <div style={{
+                                                    background: '#f0fdf4',
+                                                    border: '1px solid #bbf7d0',
+                                                    color: '#166534',
+                                                    padding: '0.65rem 0.9rem',
+                                                    borderRadius: 'var(--radius)',
+                                                    fontSize: '0.85rem',
+                                                    marginTop: '0.5rem'
+                                                }}>
+                                                    <div>✅ <strong>อนุมัติคำขอยืมแล้ว</strong></div>
+                                                    <div style={{ marginTop: '3px', fontWeight: 600 }}>
+                                                        👤 ผู้อนุมัติ: {request.approvedByName}
+                                                        {request.approveNotes && (
+                                                            <span style={{ color: '#475569', fontWeight: 400, marginLeft: '6px' }}>
+                                                                ({request.approveNotes})
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {request.status === 'returned' && (
                                                 <div className="status-returned-box" style={{
                                                     background: '#eff6ff',
