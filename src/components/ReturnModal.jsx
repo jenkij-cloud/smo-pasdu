@@ -95,14 +95,14 @@ export default function ReturnModal({ isOpen, request, onConfirm, onCancel }) {
                                     <ul style={{ margin: '0', paddingLeft: '1.2rem', fontSize: '0.85rem', color: '#334155' }}>
                                         {request.items.map((it, idx) => (
                                             <li key={idx} style={{ marginBottom: '2px' }}>
-                                                <strong>{it.equipmentName}</strong> × {it.quantity || 1} ชิ้น
+                                                <strong>{it.equipmentName}</strong> × {it.quantity || 1} {it.unit || 'ชิ้น'}
                                                 {it.equipmentSerial && <span style={{ color: '#64748b' }}> (SN: {it.equipmentSerial})</span>}
                                             </li>
                                         ))}
                                     </ul>
                                 ) : (
                                     <div style={{ fontSize: '0.85rem', color: '#334155' }}>
-                                        • <strong>{request.equipmentName}</strong> × {request.quantity || 1} ชิ้น
+                                        • <strong>{request.equipmentName}</strong> × {request.quantity || 1} {request.unit || request.items?.[0]?.unit || 'ชิ้น'}
                                         {request.equipmentSerial && <span style={{ color: '#64748b' }}> (SN: {request.equipmentSerial})</span>}
                                     </div>
                                 )}

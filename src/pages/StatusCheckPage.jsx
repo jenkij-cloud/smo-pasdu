@@ -172,7 +172,7 @@ export default function StatusCheckPage() {
                                                             <div key={idx} className="status-item-chip">
                                                                 <span className="status-chip-icon">📦</span>
                                                                 <span className="status-chip-name">{it.equipmentName}</span>
-                                                                <span className="status-chip-qty">×{it.quantity}</span>
+                                                                <span className="status-chip-qty">×{it.quantity} {it.unit || ''}</span>
                                                                 {it.equipmentSerial && (
                                                                     <span className="status-chip-sn">SN: {it.equipmentSerial}</span>
                                                                 )}
@@ -183,7 +183,7 @@ export default function StatusCheckPage() {
                                             ) : (
                                                 <div className="status-card-row">
                                                     <span className="status-card-label">📦 จำนวน:</span>
-                                                    <span style={{ fontWeight: 600 }}>{request.quantity} ชิ้น</span>
+                                                    <span style={{ fontWeight: 600 }}>{request.quantity} {request.unit || request.items?.[0]?.unit || 'ชิ้น'}</span>
                                                 </div>
                                             )}
                                             <div className="status-card-row">

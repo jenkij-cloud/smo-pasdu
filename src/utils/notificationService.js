@@ -25,23 +25,23 @@ export function getStudentEmail(studentId) {
 function formatEquipmentDetails(request) {
     if (request.items && Array.isArray(request.items) && request.items.length > 0) {
         const lines = request.items.map((item, idx) => 
-            `  ${idx + 1}. ${item.equipmentName} (${item.quantity} ชิ้น)${item.equipmentSerial ? ` [SN: ${item.equipmentSerial}]` : ''}`
+            `  ${idx + 1}. ${item.equipmentName} (${item.quantity} ${item.unit || 'ชิ้น'})${item.equipmentSerial ? ` [SN: ${item.equipmentSerial}]` : ''}`
         );
         const totalQty = request.totalQuantity || request.quantity || request.items.reduce((s, i) => s + (i.quantity || 1), 0);
         return `รายการครุภัณฑ์ (${request.items.length} รายการ, รวม ${totalQty} ชิ้น):\n${lines.join('\n')}`;
     }
-    return `ครุภัณฑ์: ${request.equipmentName} (${request.quantity} ชิ้น)`;
+    return `ครุภัณฑ์: ${request.equipmentName} (${request.quantity} ${request.unit || request.items?.[0]?.unit || 'ชิ้น'})`;
 }
 
 function getEquipmentTitle(request) {
     if (request.items && Array.isArray(request.items) && request.items.length > 0) {
         if (request.items.length === 1) {
-            return `${request.items[0].equipmentName} (${request.items[0].quantity} ชิ้น)`;
+            return `${request.items[0].equipmentName} (${request.items[0].quantity} ${request.items[0].unit || 'ชิ้น'})`;
         }
         const totalQty = request.totalQuantity || request.quantity || request.items.reduce((s, i) => s + (i.quantity || 1), 0);
         return `${request.items[0].equipmentName} และอื่นๆ รวม ${request.items.length} รายการ (${totalQty} ชิ้น)`;
     }
-    return `${request.equipmentName} (${request.quantity} ชิ้น)`;
+    return `${request.equipmentName} (${request.quantity} ${request.unit || request.items?.[0]?.unit || 'ชิ้น'})`;
 }
 
 /**

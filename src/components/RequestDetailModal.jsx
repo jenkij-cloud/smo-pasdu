@@ -135,7 +135,7 @@ export default function RequestDetailModal({
                                                 <td><span className="card-category-sm">{it.equipmentCategory || '-'}</span></td>
                                                 <td><code style={{ fontSize: '0.85rem' }}>{it.equipmentSerial || '-'}</code></td>
                                                 <td style={{ textAlign: 'center' }}>
-                                                    <span className="badge-qty" style={{ fontSize: '0.9rem' }}>{it.quantity} ชิ้น</span>
+                                                    <span className="badge-qty" style={{ fontSize: '0.9rem' }}>{it.quantity} {it.unit || 'ชิ้น'}</span>
                                                 </td>
                                             </tr>
                                         ))}
@@ -240,7 +240,7 @@ export default function RequestDetailModal({
                             {!hasMultiItems && (
                                 <div className="detail-row">
                                     <span className="detail-label">จำนวนที่ยืม:</span>
-                                    <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{request.quantity} ชิ้น</span>
+                                    <span style={{ fontWeight: 600, color: 'var(--primary)' }}>{request.quantity} {request.unit || request.items?.[0]?.unit || 'ชิ้น'}</span>
                                 </div>
                             )}
                             <div className="detail-row">

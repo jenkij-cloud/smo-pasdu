@@ -75,7 +75,7 @@ export default function EquipmentCard({
                         <span className={`quantity-number ${isOutOfStock ? 'qty-zero' : isLowStock ? 'qty-low' : ''}`}>
                             {equipment.quantity}
                         </span>
-                        <span>ชิ้น</span>
+                        <span>{equipment.unit || 'ชิ้น'}</span>
                     </div>
                     {isLowStock && <span className="stock-warning">ใกล้หมด</span>}
                 </div>

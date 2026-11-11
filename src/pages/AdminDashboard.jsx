@@ -410,7 +410,7 @@ export default function AdminDashboard() {
         const rows = dataToExport.map((r, index) => {
             const hasMulti = r.items && Array.isArray(r.items) && r.items.length > 0;
             const equipStr = hasMulti
-                ? r.items.map(it => `${it.equipmentName} (${it.quantity || 1} ชิ้น)`).join(' + ')
+                ? r.items.map(it => `${it.equipmentName} (${it.quantity || 1} ${it.unit || 'ชิ้น'})`).join(' + ')
                 : (r.equipmentName || '-');
             const totalQty = r.totalQuantity || r.quantity || (hasMulti ? r.items.reduce((s, i) => s + (i.quantity || 1), 0) : 1);
             const identifier = r.borrowerType === 'staff' ? (r.staffId || r.position || 'อาจารย์/บุคลากร') : (r.studentId || '-');
@@ -818,7 +818,7 @@ export default function AdminDashboard() {
                                                             <div>
                                                                 <strong>{request.equipmentName}</strong>
                                                                 <div className="cell-subtext">
-                                                                    จำนวน: <span className="badge-qty">{request.quantity}</span> ชิ้น
+                                                                    จำนวน: <span className="badge-qty">{request.quantity}</span> {request.unit || request.items?.[0]?.unit || 'ชิ้น'}
                                                                 </div>
                                                             </div>
                                                         )}
@@ -1203,7 +1203,7 @@ export default function AdminDashboard() {
                                                 </td>
                                                 <td>
                                                     <span className={`badge-qty ${equipment.quantity === 0 ? 'qty-zero' : ''}`}>
-                                                        {equipment.quantity} ชิ้น
+                                                        {equipment.quantity} {equipment.unit || 'ชิ้น'}
                                                     </span>
                                                 </td>
                                                 <td>
@@ -1269,7 +1269,7 @@ export default function AdminDashboard() {
                                                 <div className="mobile-equip-detail-row">
                                                     <span className="mobile-equip-label">คงเหลือในคลัง</span>
                                                     <span className={`mobile-equip-val badge-qty ${equipment.quantity === 0 ? 'qty-zero' : ''}`}>
-                                                        {equipment.quantity} ชิ้น
+                                                        {equipment.quantity} {equipment.unit || 'ชิ้น'}
                                                     </span>
                                                 </div>
                                             </div>

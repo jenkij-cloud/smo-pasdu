@@ -138,7 +138,8 @@ export default function UserPage() {
 
                     const currentStock = equipmentDoc.data().quantity || 0;
                     if (currentStock < item.quantity) {
-                        throw new Error(`ขออภัย "${item.equipmentName}" คงเหลือเพียง ${currentStock} ชิ้น ไม่พอสำหรับจำนวนที่ต้องการยืม (${item.quantity} ชิ้น)`);
+                        const unitLabel = item.unit || equipmentDoc.data().unit || 'ชิ้น';
+                        throw new Error(`ขออภัย "${item.equipmentName}" คงเหลือเพียง ${currentStock} ${unitLabel} ไม่พอสำหรับจำนวนที่ต้องการยืม (${item.quantity} ${unitLabel})`);
                     }
 
                     equipUpdates.push({

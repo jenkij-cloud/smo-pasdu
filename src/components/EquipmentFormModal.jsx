@@ -2,11 +2,36 @@ import { useState } from 'react';
 import { useToast } from '../context/ToastContext';
 import { compressImage } from '../utils/imageUtils';
 
+export const COMMON_UNITS = [
+    'ชิ้น',
+    'ชุด',
+    'อัน',
+    'ตัว',
+    'กล่อง',
+    'เครื่อง',
+    'ผืน',
+    'ลูก',
+    'คู่',
+    'แพ็ค',
+    'ม้วน',
+    'ใบ',
+    'เส้น',
+    'คัน'
+];
+
 export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
     const toast = useToast();
+
+    const initialUnit = equipment?.unit || 'ชิ้น';
+    const isInitialCustom = !COMMON_UNITS.includes(initialUnit);
+
+    const [isCustomUnit, setIsCustomUnit] = useState(isInitialCustom);
+    const [customUnitValue, setCustomUnitValue] = useState(isInitialCustom ? initialUnit : '');
+
     const [formData, setFormData] = useState({
         name: equipment?.name || '',
         quantity: equipment?.quantity !== undefined ? equipment.quantity : 1,
+        unit: initialUnit,
         category: equipment?.category || '',
         serialNumber: equipment?.serialNumber || '',
         condition: equipment?.condition || 'good',
@@ -27,8 +52,33 @@ export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
         if (!formData.name.trim()) newErrors.name = 'กรุณากรอกชื่อครุภัณฑ์';
         if (!formData.category.trim()) newErrors.category = 'กรุณากรอกหมวดหมู่';
         if (formData.quantity < 0) newErrors.quantity = 'จำนวนต้องไม่ติดลบ';
+        if (!formData.unit || !formData.unit.trim()) newErrors.unit = 'กรุณาระบุหน่วยนับ';
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    const handleUnitSelect = (e) => {
+        const val = e.target.value;
+        if (val === 'custom') {
+            setIsCustomUnit(true);
+            setFormData(prev => ({ ...prev, unit: customUnitValue || '' }));
+        } else {
+            setIsCustomUnit(false);
+            setFormData(prev => ({ ...prev, unit: val }));
+        }
+    };
+
+    const handleCustomUnitChange = (e) => {
+        const val = e.target.value;
+        setCustomUnitValue(val);
+        setFormData(prev => ({ ...prev, unit: val }));
+        if (errors.unit) {
+            setErrors(prev => {
+                const next = { ...prev };
+                delete next.unit;
+                return next;
+            });
+        }
     };
 
     const handleFileChange = async (e) => {
@@ -92,6 +142,7 @@ export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
 
             await onSubmit({
                 ...formData,
+                unit: formData.unit.trim() || 'ชิ้น',
                 imageUrl: finalImageUrl
             }, equipment?.id);
 
@@ -202,7 +253,7 @@ export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
 
                             <div className="form-group" style={{ flex: 1 }}>
                                 <label className="form-label">
-                                    จำนวน (ชิ้น) <span className="required">*</span>
+                                    จำนวน <span className="required">*</span>
                                 </label>
                                 <input
                                     type="number"
@@ -212,6 +263,34 @@ export default function EquipmentFormModal({ equipment, onClose, onSubmit }) {
                                     onChange={e => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
                                 />
                                 {errors.quantity && <p className="form-error">{errors.quantity}</p>}
+                            </div>
+
+                            <div className="form-group" style={{ flex: 1 }}>
+                                <label className="form-label">
+                                    หน่วยนับ <span className="required">*</span>
+                                </label>
+                                <select
+                                    className="form-select"
+                                    value={isCustomUnit ? 'custom' : formData.unit}
+                                    onChange={handleUnitSelect}
+                                >
+                                    {COMMON_UNITS.map(u => (
+                                        <option key={u} value={u}>{u}</option>
+                                    ))}
+                                    <option value="custom">✏️ อื่นๆ (ระบุเอง)...</option>
+                                </select>
+                                {isCustomUnit && (
+                                    <input
+                                        type="text"
+                                        className="form-input form-input-sm"
+                                        style={{ marginTop: '0.4rem' }}
+                                        placeholder="พิมพ์หน่วย เช่น ชุด, ม้วน"
+                                        value={customUnitValue}
+                                        onChange={handleCustomUnitChange}
+                                        autoFocus
+                                    />
+                                )}
+                                {errors.unit && <p className="form-error">{errors.unit}</p>}
                             </div>
                         </div>
 

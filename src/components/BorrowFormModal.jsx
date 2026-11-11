@@ -96,6 +96,7 @@ export default function BorrowFormModal({
                 equipmentCategory: item.category || item.equipmentCategory || '',
                 equipmentSerial: item.serialNumber || item.equipmentSerial || '',
                 imageUrl: item.imageUrl || '',
+                unit: item.unit || 'ชิ้น',
                 availableStock: typeof item.availableStock === 'number' ? item.availableStock : (item.quantity || 1),
                 quantity: item.borrowQuantity || 1
             }));
@@ -107,6 +108,7 @@ export default function BorrowFormModal({
                 equipmentCategory: equipment.category || '',
                 equipmentSerial: equipment.serialNumber || '',
                 imageUrl: equipment.imageUrl || '',
+                unit: equipment.unit || 'ชิ้น',
                 availableStock: equipment.quantity,
                 quantity: 1
             }];
@@ -181,6 +183,7 @@ export default function BorrowFormModal({
                     equipmentCategory: eq.category || '',
                     equipmentSerial: eq.serialNumber || '',
                     imageUrl: eq.imageUrl || '',
+                    unit: eq.unit || 'ชิ้น',
                     availableStock: eq.quantity,
                     quantity: 1
                 }
@@ -562,7 +565,7 @@ export default function BorrowFormModal({
                     break;
                 }
                 if (qty > item.availableStock) {
-                    newErrors.items = `จำนวนของ "${item.equipmentName}" เกินคงเหลือในคลัง (${item.availableStock} ชิ้น)`;
+                    newErrors.items = `จำนวนของ "${item.equipmentName}" เกินคงเหลือในคลัง (${item.availableStock} ${item.unit || 'ชิ้น'})`;
                     break;
                 }
             }
@@ -675,6 +678,7 @@ export default function BorrowFormModal({
                 equipmentCategory: item.equipmentCategory || '',
                 equipmentSerial: item.equipmentSerial || '',
                 imageUrl: item.imageUrl || '',
+                unit: item.unit || 'ชิ้น',
                 quantity: parseInt(item.quantity, 10) || 1
             }));
 
@@ -693,6 +697,7 @@ export default function BorrowFormModal({
                 equipmentCategory: primaryItem.equipmentCategory || '',
                 equipmentSerial: primaryItem.equipmentSerial || '',
                 quantity: totalQuantity,
+                unit: primaryItem.unit || 'ชิ้น',
                 borrowerType: formData.borrowerType,
                 studentId: formData.borrowerType === 'student' ? cleanStr(formData.studentId) : '-',
                 staffId: '',
@@ -797,7 +802,7 @@ export default function BorrowFormModal({
                                                         <span className="badge-serial-sm">SN: {item.equipmentSerial}</span>
                                                     )}
                                                     <span className="borrow-item-stock">
-                                                        คงเหลือในคลัง: <strong>{item.availableStock}</strong> ชิ้น
+                                                        คงเหลือในคลัง: <strong>{item.availableStock}</strong> {item.unit || 'ชิ้น'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -838,6 +843,9 @@ export default function BorrowFormModal({
                                                         +
                                                     </button>
                                                 </div>
+                                                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', minWidth: '28px' }}>
+                                                    {item.unit || 'ชิ้น'}
+                                                </span>
 
                                                 {selectedItems.length > 1 && (
                                                     <button
@@ -882,7 +890,7 @@ export default function BorrowFormModal({
                                                         <div>
                                                             <div className="add-equip-name">{eq.name}</div>
                                                             <div className="add-equip-sub">
-                                                                <span>{eq.category || 'ทั่วไป'}</span> • คงเหลือ: <strong>{eq.quantity}</strong> ชิ้น
+                                                                <span>{eq.category || 'ทั่วไป'}</span> • คงเหลือ: <strong>{eq.quantity}</strong> {eq.unit || 'ชิ้น'}
                                                             </div>
                                                         </div>
                                                     </div>
