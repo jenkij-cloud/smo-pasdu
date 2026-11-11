@@ -1107,11 +1107,16 @@ body {
   color: white;
 }
 
-/* ===== Form Row (Date Pickers) ===== */
+/* ===== Form Row ===== */
 .form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.form-row > .form-group {
+  flex: 1;
+  min-width: 130px;
 }
 
 /* ===== Status Check Page ===== */
@@ -1390,8 +1395,8 @@ body {
   transform: translateY(-2px) scale(1.1);
 }
 
-/* ===== Responsive Styles (Tablet & Mobile) ===== */
-@media (max-width: 768px) {
+/* ===== Responsive Styles (Mobile < 740px) ===== */
+@media (max-width: 739px) {
   /* Header Compact */
   .header-content {
     padding: 0.65rem 1rem;
@@ -1620,8 +1625,13 @@ body {
   }
 
   .form-row {
-    grid-template-columns: 1fr;
+    flex-direction: column;
     gap: 0;
+  }
+
+  .form-row > .form-group {
+    width: 100%;
+    min-width: 100%;
   }
 
   .form-input,
@@ -1854,7 +1864,7 @@ body {
   pointer-events: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 739px) {
   .toast-container {
     top: 66px;
     left: 0.75rem;
@@ -2527,7 +2537,7 @@ body {
   color: var(--primary);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 739px) {
   .detail-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
@@ -2766,7 +2776,7 @@ body {
   margin-bottom: 0.5rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 739px) {
   .schedule-inputs-row {
     grid-template-columns: 1fr;
     gap: 0.5rem;
@@ -3521,7 +3531,7 @@ body {
 }
 
 /* Responsive Media Queries for Mobile Screens */
-@media (max-width: 768px) {
+@media (max-width: 739px) {
   .page-header-flex {
     flex-direction: column;
     align-items: stretch;
@@ -4168,7 +4178,7 @@ body {
    MOBILE RESPONSIVE OVERHAUL: Multi-Item Cart, Borrow Modal, Detail Table
    ========================================================================== */
 
-@media (max-width: 768px) {
+@media (max-width: 739px) {
 
   /* ---------- Floating Cart Bar: Redesigned for mobile ---------- */
   .floating-cart-bar {
@@ -4588,8 +4598,8 @@ body {
   }
 }
 
-/* ---------- Tablet landscape & larger phones (481-768px) ---------- */
-@media (min-width: 481px) and (max-width: 768px) {
+/* ---------- Larger phones (481-739px) ---------- */
+@media (min-width: 481px) and (max-width: 739px) {
 
   .floating-cart-bar {
     left: 1rem;
@@ -5173,7 +5183,7 @@ body {
 }
 
 /* Mobile Adjustments for Faculty Dropdown */
-@media (max-width: 768px) {
+@media (max-width: 739px) {
   .custom-faculty-trigger {
     padding: 0.65rem 0.85rem;
     font-size: 0.9rem;
@@ -5209,5 +5219,403 @@ body {
     font-size: 1.05rem;
   }
 }
+
+/* ==========================================================================
+   IPAD & TABLET RESPONSIVE STYLES (Viewport 740px to 1080px)
+   Tailored for iPad Mini, iPad 10.2"/10.9", iPad Air, iPad Pro, Android Tablets
+   Supports both Portrait (740px - 900px) and Landscape (901px - 1080px)
+   ========================================================================== */
+@media (min-width: 740px) and (max-width: 1080px) {
+
+  /* Prevent iOS Safari auto-zoom on input focus */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* --- 1. Global & Container Spacing --- */
+  .main-container {
+    padding: 1.25rem 1.75rem !important;
+    max-width: 100% !important;
+    margin-bottom: 2.5rem !important;
+  }
+
+  /* --- 2. Header & Navigation (Clean iPad Top Bar) --- */
+  .header-content {
+    padding: 0.75rem 1.5rem !important;
+    max-width: 100% !important;
+  }
+
+  .header-logo {
+    gap: 0.75rem !important;
+  }
+
+  .logo-icon-img {
+    width: 44px !important;
+    height: 44px !important;
+    padding: 3px !important;
+  }
+
+  .header-title h1 {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    line-height: 1.25 !important;
+    margin-bottom: 0.1rem !important;
+  }
+
+  .header-title p {
+    font-size: 0.75rem !important;
+  }
+
+  .desktop-nav {
+    display: flex !important;
+    gap: 0.45rem !important;
+    align-items: center !important;
+  }
+
+  .nav-link {
+    padding: 0.45rem 0.75rem !important;
+    font-size: 0.88rem !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
+  }
+
+  .mobile-menu-btn {
+    display: none !important;
+  }
+
+  .mobile-menu-drawer {
+    display: none !important;
+  }
+
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+
+  /* --- 3. Filters & Search Bar --- */
+  .catalog-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .filter-tabs {
+    display: flex !important;
+    gap: 0.5rem !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 0.35rem !important;
+    scrollbar-width: thin;
+  }
+
+  .filter-tab {
+    padding: 0.45rem 0.95rem !important;
+    font-size: 0.85rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    border-radius: 20px !important;
+  }
+
+  /* --- 4. Modals (Clean iPad Floating Dialog) --- */
+  .modal-overlay {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1.5rem !important;
+  }
+
+  .modal {
+    border-radius: 18px !important;
+    max-height: 85vh !important;
+    max-width: 620px !important;
+    width: 100% !important;
+    margin: auto !important;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25) !important;
+    animation: modalSlideIn 0.25s ease !important;
+  }
+
+  .modal-lg {
+    max-width: 740px !important;
+  }
+
+  .modal-header {
+    border-radius: 18px 18px 0 0 !important;
+    padding: 1.1rem 1.5rem !important;
+  }
+
+  .modal-body {
+    padding: 1.25rem 1.5rem !important;
+    max-height: calc(85vh - 130px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .modal-footer {
+    padding: 1rem 1.5rem !important;
+    border-radius: 0 0 18px 18px !important;
+  }
+
+  .form-row {
+    display: flex !important;
+    gap: 0.85rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  .form-row > .form-group {
+    flex: 1 !important;
+    min-width: 140px !important;
+  }
+
+  .schedule-inputs-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  /* --- 5. Floating Cart Sticky Bar (Centered iPad Pill) --- */
+  .floating-cart-bar {
+    bottom: 1.5rem !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: calc(100% - 3rem) !important;
+    max-width: 760px !important;
+    border-radius: 16px !important;
+    padding: 0.85rem 1.25rem !important;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35) !important;
+    z-index: 95 !important;
+  }
+
+  .floating-cart-content {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 1rem !important;
+  }
+
+  .floating-cart-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .floating-cart-names {
+    display: block !important;
+    max-width: 320px !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    opacity: 0.9 !important;
+  }
+
+  .floating-cart-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .floating-cart-actions .btn {
+    min-height: 40px !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* --- 6. Admin Dashboard on Tablet --- */
+  .admin-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .admin-quick-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0.5rem !important;
+    width: auto !important;
+  }
+
+  .admin-action-btn {
+    min-height: 40px !important;
+    padding: 0.5rem 0.85rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  .admin-toolbar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.75rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .data-table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--border) !important;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.75rem 0.85rem !important;
+    font-size: 0.85rem !important;
+    white-space: nowrap !important;
+  }
+
+  .data-table th:nth-child(2),
+  .data-table td:nth-child(2) {
+    white-space: normal !important;
+    min-width: 160px !important;
+  }
+
+  /* --- 7. Status Check Page --- */
+  .status-check-search {
+    padding: 1.25rem 1.5rem !important;
+  }
+
+  .search-form {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0.75rem !important;
+  }
+
+  .search-form .btn {
+    min-height: 44px !important;
+    padding: 0.6rem 1.25rem !important;
+  }
+}
+
+/* ==========================================================================
+   IPAD PORTRAIT SUB-BREAKPOINT (740px to 900px)
+   e.g. iPad Mini (744/768px), iPad 10.2" (810px), iPad Air (820px), iPad Pro 11" (834px)
+   ========================================================================== */
+@media (min-width: 740px) and (max-width: 900px) {
+
+  /* 3-Column Card Catalog Grid - Balanced and Native */
+  .cards-container {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.85rem !important;
+    margin-bottom: 2rem !important;
+  }
+
+  .card-image-wrapper {
+    height: 145px !important;
+  }
+
+  .equipment-card {
+    border-radius: 12px !important;
+  }
+
+  .card-body {
+    padding: 0.85rem !important;
+  }
+
+  .card-title {
+    font-size: 0.95rem !important;
+    line-height: 1.3 !important;
+    min-height: 2.5rem !important;
+  }
+
+  .card-actions-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.35rem !important;
+    width: 100% !important;
+  }
+
+  .card-actions-row .btn-borrow {
+    width: 100% !important;
+    min-height: 38px !important;
+    font-size: 0.84rem !important;
+  }
+
+  .btn-cart-toggle {
+    width: 100% !important;
+    min-height: 36px !important;
+    font-size: 0.82rem !important;
+  }
+
+  /* Admin Stats: 2x2 Grid for Tablet Portrait */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.85rem !important;
+  }
+
+  /* Status Cards: 2 Columns for Tablet Portrait */
+  .status-cards {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+}
+
+/* ==========================================================================
+   IPAD LANDSCAPE SUB-BREAKPOINT (901px to 1080px)
+   e.g. iPad 10.2" Landscape (1080px), iPad Pro Landscape (1024px)
+   ========================================================================== */
+@media (min-width: 901px) and (max-width: 1080px) {
+
+  /* 4-Column Card Catalog Grid */
+  .cards-container {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1rem !important;
+    margin-bottom: 2rem !important;
+  }
+
+  .card-image-wrapper {
+    height: 150px !important;
+  }
+
+  .card-body {
+    padding: 0.9rem !important;
+  }
+
+  .card-title {
+    font-size: 0.95rem !important;
+    line-height: 1.3 !important;
+    min-height: 2.5rem !important;
+  }
+
+  .card-actions-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.35rem !important;
+    width: 100% !important;
+  }
+
+  .card-actions-row .btn-borrow {
+    width: 100% !important;
+    min-height: 38px !important;
+    font-size: 0.84rem !important;
+  }
+
+  .btn-cart-toggle {
+    width: 100% !important;
+    min-height: 36px !important;
+    font-size: 0.82rem !important;
+  }
+
+  /* Admin Stats: 4 Columns for Tablet Landscape */
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1rem !important;
+  }
+
+  /* Status Cards: 2 Columns for Tablet Landscape */
+  .status-cards {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.25rem !important;
+  }
+}
+
 
 
