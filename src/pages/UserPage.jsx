@@ -11,6 +11,7 @@ import {
 import Header from '../components/Header';
 import EquipmentCard from '../components/EquipmentCard';
 import BorrowFormModal from '../components/BorrowFormModal';
+import LoadingScreen from '../components/LoadingScreen';
 import { useToast } from '../context/ToastContext';
 import { sendBorrowNotification } from '../utils/notificationService';
 import { getCategoryIcon } from '../utils/categoryUtils';
@@ -256,10 +257,10 @@ export default function UserPage() {
                 </div>
 
                 {loading ? (
-                    <div className="loading">
-                        <div className="spinner"></div>
-                        <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>กำลังโหลดรายการครุภัณฑ์...</p>
-                    </div>
+                    <LoadingScreen
+                        message="กำลังโหลดรายการครุภัณฑ์..."
+                        submessage="สโมสรนิสิตคณะวิทยาศาสตร์และนวัตกรรมดิจิทัล"
+                    />
                 ) : filteredEquipments.length === 0 ? (
                     <div className="empty-state">
                         <div className="empty-state-icon">📭</div>

@@ -22,6 +22,7 @@ import ApproveModal from '../components/ApproveModal';
 import RequestDetailModal from '../components/RequestDetailModal';
 import EquipmentFormModal from '../components/EquipmentFormModal';
 import EmailWebhookModal from '../components/EmailWebhookModal';
+import LoadingScreen from '../components/LoadingScreen';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDate, isOverdue, formatDateTimeRange, getOverdueText, isDueSoon, getDueSoonText } from '../utils/dateUtils';
@@ -548,10 +549,10 @@ export default function AdminDashboard() {
             <>
                 <Header />
                 <div className="main-container">
-                    <div className="loading">
-                        <div className="spinner"></div>
-                        <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>กำลังเตรียมระบบผู้ดูแล...</p>
-                    </div>
+                    <LoadingScreen
+                        message="กำลังเตรียมระบบผู้ดูแล..."
+                        submessage="ระบบจัดการคลังครุภัณฑ์ สโมสรนิสิต วท.ด."
+                    />
                 </div>
             </>
         );

@@ -4,6 +4,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import Header from '../components/Header';
 import StatusBadge from '../components/StatusBadge';
 import RequestDetailModal from '../components/RequestDetailModal';
+import LoadingScreen from '../components/LoadingScreen';
 import { formatDate, isOverdue, getDaysOverdue, getOverdueText, getBorrowDurationText, isDueSoon, getDueSoonText, maskEmail } from '../utils/dateUtils';
 import { getStudentEmail } from '../utils/notificationService';
 import { useToast } from '../context/ToastContext';
@@ -120,10 +121,10 @@ export default function StatusCheckPage() {
                 </div>
 
                 {loading && (
-                    <div className="loading">
-                        <div className="spinner"></div>
-                        <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>กำลังค้นหาข้อมูล...</p>
-                    </div>
+                    <LoadingScreen
+                        message="กำลังค้นหาประวัติการยืม..."
+                        submessage="กำลังตรวจสอบข้อมูลกับฐานข้อมูลสโมสรนิสิต"
+                    />
                 )}
 
                 {!loading && searched && results.length === 0 && (
